@@ -93,6 +93,34 @@ Configuration is managed through:
 - `appsettings.Development.json` - Development overrides
 - Environment variables
 
+### Environment Variables
+
+The application requires the following environment variables to be set:
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit `.env` with your actual values:**
+   ```bash
+   # Google OAuth Configuration
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   
+   # JWT Configuration
+   JWT_SECRET_KEY=your-super-secret-jwt-key-with-at-least-32-characters
+   JWT_ISSUER=EduShield
+   JWT_AUDIENCE=EduShield
+   JWT_EXPIRATION_MINUTES=60
+   JWT_REFRESH_TOKEN_EXPIRATION_DAYS=7
+   
+   # Application Configuration
+   ENABLE_DEV_AUTH=true
+   ```
+
+**⚠️ Security Note:** Never commit the `.env` file to version control. It's already added to `.gitignore`.
+
 ## Docker Services
 
 The application uses Docker Compose to run:

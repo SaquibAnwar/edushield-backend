@@ -11,6 +11,7 @@ using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Reflection;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +27,9 @@ builder.Services.AddControllers();
 
 // Add HttpContextAccessor for accessing current user context
 builder.Services.AddHttpContextAccessor();
+
+// Load environment variables
+builder.Configuration.AddEnvironmentVariables();
 
 // Configure Authentication
 var authConfig = builder.Configuration.GetSection("Authentication").Get<AuthenticationConfiguration>();
@@ -80,6 +84,22 @@ builder.Services.AddSwaggerGen(c =>
             Email = "support@edushield.com"
         }
     });
+
+    // Include XML comments from the API project
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+
+    // Include XML comments from the Core project
+    var coreXmlFile = "EduShield.Core.xml";
+    var coreXmlPath = Path.Combine(AppContext.BaseDirectory, coreXmlFile);
+    if (File.Exists(coreXmlPath))
+    {
+        c.IncludeXmlComments(coreXmlPath);
+    }
 });
 
 // Add Entity Framework
