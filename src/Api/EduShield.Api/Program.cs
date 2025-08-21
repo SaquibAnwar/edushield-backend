@@ -31,9 +31,33 @@ builder.Services.AddHttpContextAccessor();
 // Load environment variables
 builder.Configuration.AddEnvironmentVariables();
 
+// Override configuration with environment variables
+var authConfig = new AuthenticationConfiguration
+{
+    Jwt = new JwtSettings
+    {
+        SecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? "your-super-secret-jwt-key-with-at-least-32-characters",
+        Issuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "EduShield",
+        Audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "EduShield",
+        ExpirationMinutes = int.TryParse(Environment.GetEnvironmentVariable("JWT_EXPIRATION_MINUTES"), out var expMinutes) ? expMinutes : 60,
+        RefreshTokenExpirationDays = int.TryParse(Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_EXPIRATION_DAYS"), out var refreshDays) ? refreshDays : 7
+    },
+    Google = new GoogleSettings
+    {
+        ClientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? "your-google-client-id",
+        ClientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET") ?? "your-google-client-secret",
+        RedirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI") ?? "http://localhost:5000/api/v1/auth/google/callback"
+    },
+    EnableDevAuth = bool.TryParse(Environment.GetEnvironmentVariable("ENABLE_DEV_AUTH"), out var enableDevAuth) ? enableDevAuth : true
+};
+
 // Configure Authentication
-var authConfig = builder.Configuration.GetSection("Authentication").Get<AuthenticationConfiguration>();
-builder.Services.Configure<AuthenticationConfiguration>(builder.Configuration.GetSection("Authentication"));
+builder.Services.Configure<AuthenticationConfiguration>(options =>
+{
+    options.Jwt = authConfig.Jwt;
+    options.Google = authConfig.Google;
+    options.EnableDevAuth = authConfig.EnableDevAuth;
+});
 
 // Add JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
