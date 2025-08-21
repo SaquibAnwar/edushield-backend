@@ -1,6 +1,16 @@
 using EduShield.Core.Data;
+using EduShield.Core.Interfaces;
+using EduShield.Core.Security;
+using EduShield.Core.Services;
+using EduShield.Core.Configuration;
+using EduShield.Core.Enums;
+using EduShield.Api.Auth;
+using EduShield.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +26,44 @@ builder.Services.AddControllers();
 
 // Add HttpContextAccessor for accessing current user context
 builder.Services.AddHttpContextAccessor();
+
+// Configure Authentication
+var authConfig = builder.Configuration.GetSection("Authentication").Get<AuthenticationConfiguration>();
+builder.Services.Configure<AuthenticationConfiguration>(builder.Configuration.GetSection("Authentication"));
+
+// Add JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authConfig?.Jwt.SecretKey ?? "default-secret-key")),
+            ValidateIssuer = true,
+            ValidIssuer = authConfig?.Jwt.Issuer ?? "EduShield",
+            ValidateAudience = true,
+            ValidAudience = authConfig?.Jwt.Audience ?? "EduShield",
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+// Add Authorization with policies
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicies.AdminOnly, policy => policy.RequireRole(UserRole.Admin));
+    options.AddPolicy(AuthorizationPolicies.StudentOnly, policy => policy.RequireRole(UserRole.Student));
+    options.AddPolicy(AuthorizationPolicies.FacultyOnly, policy => policy.RequireRole(UserRole.Faculty));
+    options.AddPolicy(AuthorizationPolicies.ParentOnly, policy => policy.RequireRole(UserRole.Parent));
+    options.AddPolicy(AuthorizationPolicies.DevAuthOnly, policy => policy.RequireRole(UserRole.DevAuth));
+    options.AddPolicy(AuthorizationPolicies.AdminOrFaculty, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Faculty));
+    options.AddPolicy(AuthorizationPolicies.AdminOrStudent, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Student));
+    options.AddPolicy(AuthorizationPolicies.AdminOrParent, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Parent));
+    options.AddPolicy(AuthorizationPolicies.AuthenticatedUser, policy => policy.RequireAuthenticatedUser());
+});
+
+// Add HttpClient for Google Auth
+builder.Services.AddHttpClient();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -38,6 +86,15 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<EduShieldDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
+// Add Repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+// Add Services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<ITestDataSeeder, TestDataSeeder>();
+
 // Add Health Checks
 builder.Services.AddHealthChecks()
     .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!)
@@ -53,7 +110,7 @@ builder.Services.AddStackExchangeRedisCache(options =>
 builder.Services.AddHttpsRedirection(options =>
 {
     options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
-    options.HttpsPort = 3001;
+    options.HttpsPort = 5001;
 });
 
 // Add CORS
@@ -88,11 +145,22 @@ if (!app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 
+// Use JWT Authentication Middleware
+app.UseJwtAuthentication();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 // Map Health Checks
 app.MapHealthChecks("/health");
+
+// Seed test data
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<ITestDataSeeder>();
+    await seeder.SeedUsersAsync();
+}
 
 app.Run();

@@ -40,9 +40,9 @@ dotnet ef database update --no-build || echo "⚠️  No migrations to run or EF
 
 # Start the API
 echo "🚀 Starting EduShield Backend API..."
-echo "📍 API will be available at: https://localhost:3001 (HTTPS) or http://localhost:3000 (HTTP)"
-echo "📚 Swagger UI will be available at: https://localhost:3001/swagger"
-echo "🔍 Health endpoint available at: http://localhost:3000/api/v1/health"
+echo "📍 API will be available at: https://localhost:5001 (HTTPS) or http://localhost:5000 (HTTP)"
+echo "📚 Swagger UI will be available at: https://localhost:5001/swagger"
+echo "🔍 Health endpoint available at: http://localhost:5000/api/v1/health"
 echo ""
 echo "Press Ctrl+C to stop the application"
 echo ""

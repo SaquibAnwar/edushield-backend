@@ -9,9 +9,22 @@ public class EduShieldDbContext : DbContext
     {
     }
 
+    public DbSet<Entities.User> Users { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        
+        // Configure User entity
+        modelBuilder.Entity<Entities.User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.GoogleId).IsUnique();
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Role).IsRequired();
+        });
     }
 
     public override int SaveChanges()

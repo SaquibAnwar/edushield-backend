@@ -1,6 +1,81 @@
-@EduShield.Api_HostAddress = http://localhost:5029
+@EduShield.Api_HostAddress = http://localhost:5000
 
-GET {{EduShield.Api_HostAddress}}/weatherforecast/
+### Health Check
+GET {{EduShield.Api_HostAddress}}/api/v1/health
 Accept: application/json
 
-###
+### Test Public Endpoint
+GET {{EduShield.Api_HostAddress}}/api/v1/test/public
+Accept: application/json
+
+### Dev Authentication
+POST {{EduShield.Api_HostAddress}}/api/v1/auth/dev
+Content-Type: application/json
+
+{
+  "email": "techtonicwave.business@gmail.com"
+}
+
+### Google Authentication (requires Google ID token)
+POST {{EduShield.Api_HostAddress}}/api/v1/auth/google
+Content-Type: application/json
+
+{
+  "idToken": "your-google-id-token-here"
+}
+
+### Test Authenticated Endpoint (requires Bearer token)
+GET {{EduShield.Api_HostAddress}}/api/v1/test/authenticated
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Test Admin Only Endpoint
+GET {{EduShield.Api_HostAddress}}/api/v1/test/admin-only
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Test Student Only Endpoint
+GET {{EduShield.Api_HostAddress}}/api/v1/test/student-only
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Test Faculty Only Endpoint
+GET {{EduShield.Api_HostAddress}}/api/v1/test/faculty-only
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Test Parent Only Endpoint
+GET {{EduShield.Api_HostAddress}}/api/v1/test/parent-only
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Test Dev Auth Only Endpoint
+GET {{EduShield.Api_HostAddress}}/api/v1/test/dev-auth-only
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Test Admin or Faculty Endpoint
+GET {{EduShield.Api_HostAddress}}/api/v1/test/admin-or-faculty
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Get User Info
+GET {{EduShield.Api_HostAddress}}/api/v1/test/user-info
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Refresh Token
+POST {{EduShield.Api_HostAddress}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "your-refresh-token-here"
+}
+
+### Revoke Token
+POST {{EduShield.Api_HostAddress}}/api/v1/auth/revoke
+Content-Type: application/json
+
+{
+  "refreshToken": "your-refresh-token-here"
+}

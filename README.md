@@ -49,7 +49,7 @@ This script will:
 
 ## Services
 
-- **API**: https://localhost:3001 (HTTPS) or http://localhost:3000 (HTTP)
+- **API**: https://localhost:5001 (HTTPS) or http://localhost:5000 (HTTP)
 - **PostgreSQL**: localhost:5433
 - **Redis**: localhost:6380
 
