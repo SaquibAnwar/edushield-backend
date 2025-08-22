@@ -5,7 +5,10 @@ using EduShield.Core.Services;
 using EduShield.Core.Configuration;
 using EduShield.Core.Enums;
 using EduShield.Api.Auth;
+using EduShield.Api.Auth.Requirements;
+using EduShield.Api.Auth.Handlers;
 using EduShield.Api.Middleware;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -88,7 +91,14 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthorizationPolicies.AdminOrStudent, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Student));
     options.AddPolicy(AuthorizationPolicies.AdminOrParent, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Parent));
     options.AddPolicy(AuthorizationPolicies.AuthenticatedUser, policy => policy.RequireAuthenticatedUser());
+    
+    // Student-specific policies
+    options.AddPolicy("StudentAccess", policy => 
+        policy.Requirements.Add(new StudentAccessRequirement()));
 });
+
+// Add Authorization Handlers
+builder.Services.AddScoped<IAuthorizationHandler, StudentAuthorizationHandler>();
 
 // Add HttpClient for Google Auth
 builder.Services.AddHttpClient();
@@ -132,12 +142,14 @@ builder.Services.AddDbContext<EduShieldDbContext>(options =>
 
 // Add Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 
 // Add Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ITestDataSeeder, TestDataSeeder>();
+builder.Services.AddScoped<IStudentService, StudentService>();
 
 // Add Health Checks
 builder.Services.AddHealthChecks()
