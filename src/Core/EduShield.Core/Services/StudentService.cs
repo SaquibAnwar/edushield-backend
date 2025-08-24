@@ -200,7 +200,7 @@ public class StudentService : IStudentService
             UpdatedAt = student.UpdatedAt,
             AssignedFaculties = student.StudentFaculties
                 .Where(sf => sf.IsActive && sf.Faculty != null)
-                .Select(sf => new FacultyDto
+                .Select(sf => new FacultyAssignmentDto
                 {
                     Id = sf.Faculty!.Id,
                     FirstName = sf.Faculty.FirstName,

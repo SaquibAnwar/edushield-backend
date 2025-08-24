@@ -79,3 +79,88 @@ Content-Type: application/json
 {
   "refreshToken": "your-refresh-token-here"
 }
+
+### Faculty Management Endpoints
+
+### Create Faculty Member
+POST {{EduShield.Api_HostAddress}}/api/v1/faculty
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@university.edu",
+  "phoneNumber": "+1-555-123-4567",
+  "dateOfBirth": "1985-03-15",
+  "address": "123 University Ave, City, State 12345",
+  "gender": 0,
+  "department": "Computer Science",
+  "subject": "Software Engineering",
+  "hireDate": "2020-08-15"
+}
+
+### Get All Faculty Members
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Get Faculty by ID
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/{{facultyId}}
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Get Faculty by Email
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/email/john.doe@university.edu
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Get Faculty by Employee ID
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/employee/faculty_001
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Get Faculty by Department
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/department/Computer%20Science
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Get Faculty by Subject
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/subject/Software%20Engineering
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Get Active Faculty Only
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/active
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Update Faculty Member
+PUT {{EduShield.Api_HostAddress}}/api/v1/faculty/{{facultyId}}
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "department": "Computer Engineering",
+  "subject": "Computer Architecture",
+  "isActive": true
+}
+
+### Check if Faculty Exists
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/{{facultyId}}/exists
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Check if Email Exists
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/email/john.doe@university.edu/exists
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Check if Employee ID Exists
+GET {{EduShield.Api_HostAddress}}/api/v1/faculty/employee/faculty_001/exists
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### Delete Faculty Member
+DELETE {{EduShield.Api_HostAddress}}/api/v1/faculty/{{facultyId}}
+Authorization: Bearer {{authToken}}
