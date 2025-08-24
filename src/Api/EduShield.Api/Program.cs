@@ -98,6 +98,7 @@ builder.Services.AddAuthorization(options =>
 
 // Add Authorization Handlers
 builder.Services.AddScoped<IAuthorizationHandler, StudentAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, StudentPerformanceAuthorizationHandler>();
 
 // Add HttpClient for Google Auth
 builder.Services.AddHttpClient();
@@ -143,6 +144,7 @@ builder.Services.AddDbContext<EduShieldDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IFacultyRepository, FacultyRepository>();
+builder.Services.AddScoped<IStudentPerformanceRepository, StudentPerformanceRepository>();
 
 // Add Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -151,6 +153,8 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ITestDataSeeder, TestDataSeeder>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IFacultyService, FacultyService>();
+builder.Services.AddScoped<IStudentPerformanceService, StudentPerformanceService>();
+builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 
 // Add Health Checks
 builder.Services.AddHealthChecks()

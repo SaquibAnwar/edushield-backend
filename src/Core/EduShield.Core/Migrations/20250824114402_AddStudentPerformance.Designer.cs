@@ -3,6 +3,7 @@ using System;
 using EduShield.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EduShield.Core.Migrations
 {
     [DbContext(typeof(EduShieldDbContext))]
-    partial class EduShieldDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250824114402_AddStudentPerformance")]
+    partial class AddStudentPerformance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
