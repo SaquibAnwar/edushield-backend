@@ -28,11 +28,11 @@ public class StudentDto
     public bool IsEnrolled => Status == StudentStatus.Active;
     
     // Related data
-    public List<FacultyDto> AssignedFaculties { get; set; } = [];
+    public List<FacultyAssignmentDto> AssignedFaculties { get; set; } = [];
     public UserDto? Parent { get; set; }
 }
 
-public class FacultyDto
+public class FacultyAssignmentDto
 {
     public Guid Id { get; set; }
     public string FirstName { get; set; } = string.Empty;

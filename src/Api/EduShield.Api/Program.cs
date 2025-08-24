@@ -69,11 +69,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authConfig?.Jwt.SecretKey ?? "default-secret-key")),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authConfig.Jwt.SecretKey)),
             ValidateIssuer = true,
-            ValidIssuer = authConfig?.Jwt.Issuer ?? "EduShield",
-            ValidateAudience = true,
-            ValidAudience = authConfig?.Jwt.Audience ?? "EduShield",
+            ValidIssuer = authConfig.Jwt.Issuer,
+            ValidAudience = authConfig.Jwt.Audience,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
@@ -143,6 +142,7 @@ builder.Services.AddDbContext<EduShieldDbContext>(options =>
 // Add Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
+builder.Services.AddScoped<IFacultyRepository, FacultyRepository>();
 
 // Add Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -150,6 +150,7 @@ builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ITestDataSeeder, TestDataSeeder>();
 builder.Services.AddScoped<IStudentService, StudentService>();
+builder.Services.AddScoped<IFacultyService, FacultyService>();
 
 // Add Health Checks
 builder.Services.AddHealthChecks()
