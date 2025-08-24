@@ -52,7 +52,7 @@ public class StudentController : ControllerBase
     /// Get a specific student by ID
     /// </summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Policy = "StudentAccess")]
+    [Authorize(Roles = "Admin,DevAuth,Faculty,Parent,Student")]
     public async Task<ActionResult<StudentDto>> GetStudent(
         Guid id,
         CancellationToken cancellationToken)
@@ -63,6 +63,35 @@ public class StudentController : ControllerBase
             if (student == null)
             {
                 return NotFound(new { error = "Student not found." });
+            }
+
+            // Additional authorization logic for Faculty, Parent, and Student roles
+            var userRole = GetCurrentUserRole();
+            var userId = GetCurrentUserId();
+
+            if (userRole == UserRole.Faculty)
+            {
+                // Faculty can only access students assigned to them
+                if (!student.AssignedFaculties.Any(f => f.Id == userId))
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == UserRole.Parent)
+            {
+                // Parent can only access their children
+                if (student.ParentId != userId)
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == UserRole.Student)
+            {
+                // Student can only access their own data
+                if (student.UserId != userId)
+                {
+                    return Forbid();
+                }
             }
 
             return Ok(student);
@@ -78,7 +107,7 @@ public class StudentController : ControllerBase
     /// Get a student by email
     /// </summary>
     [HttpGet("email/{email}")]
-    [Authorize(Policy = "StudentAccess")]
+    [Authorize(Roles = "Admin,DevAuth,Faculty,Parent,Student")]
     public async Task<ActionResult<StudentDto>> GetStudentByEmail(
         string email,
         CancellationToken cancellationToken)
@@ -89,6 +118,35 @@ public class StudentController : ControllerBase
             if (student == null)
             {
                 return NotFound(new { error = "Student not found." });
+            }
+
+            // Additional authorization logic for Faculty, Parent, and Student roles
+            var userRole = GetCurrentUserRole();
+            var userId = GetCurrentUserId();
+
+            if (userRole == UserRole.Faculty)
+            {
+                // Faculty can only access students assigned to them
+                if (!student.AssignedFaculties.Any(f => f.Id == userId))
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == UserRole.Parent)
+            {
+                // Parent can only access their children
+                if (student.ParentId != userId)
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == UserRole.Student)
+            {
+                // Student can only access their own data
+                if (student.UserId != userId)
+                {
+                    return Forbid();
+                }
             }
 
             return Ok(student);
@@ -104,7 +162,7 @@ public class StudentController : ControllerBase
     /// Get a student by roll number
     /// </summary>
     [HttpGet("rollnumber/{rollNumber}")]
-    [Authorize(Policy = "StudentAccess")]
+    [Authorize(Roles = "Admin,DevAuth,Faculty,Parent,Student")]
     public async Task<ActionResult<StudentDto>> GetStudentByRollNumber(
         string rollNumber,
         CancellationToken cancellationToken)
@@ -115,6 +173,35 @@ public class StudentController : ControllerBase
             if (student == null)
             {
                 return NotFound(new { error = "Student not found." });
+            }
+
+            // Additional authorization logic for Faculty, Parent, and Student roles
+            var userRole = GetCurrentUserRole();
+            var userId = GetCurrentUserId();
+
+            if (userRole == UserRole.Faculty)
+            {
+                // Faculty can only access students assigned to them
+                if (!student.AssignedFaculties.Any(f => f.Id == userId))
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == UserRole.Parent)
+            {
+                // Parent can only access their children
+                if (student.ParentId != userId)
+                {
+                    return Forbid();
+                }
+            }
+            else if (userRole == UserRole.Student)
+            {
+                // Student can only access their own data
+                if (student.UserId != userId)
+                {
+                    return Forbid();
+                }
             }
 
             return Ok(student);
