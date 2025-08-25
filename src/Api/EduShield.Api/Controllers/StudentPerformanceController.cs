@@ -231,6 +231,12 @@ public class StudentPerformanceController : ControllerBase
             var userRole = GetCurrentUserRole();
             var userId = GetCurrentUserId();
 
+            // Check if user is authorized to create performance records
+            if (userRole != UserRole.Admin && userRole != UserRole.DevAuth && userRole != UserRole.Faculty)
+            {
+                return Forbid();
+            }
+
             // Faculty can only create performance records for students assigned to them
             if (userRole == UserRole.Faculty && userId.HasValue)
             {
@@ -289,6 +295,12 @@ public class StudentPerformanceController : ControllerBase
             var userRole = GetCurrentUserRole();
             var userId = GetCurrentUserId();
 
+            // Check if user is authorized to update performance records
+            if (userRole != UserRole.Admin && userRole != UserRole.DevAuth && userRole != UserRole.Faculty)
+            {
+                return Forbid();
+            }
+
             // Faculty can only update performance records for students assigned to them
             if (userRole == UserRole.Faculty && userId.HasValue)
             {
@@ -346,6 +358,14 @@ public class StudentPerformanceController : ControllerBase
     {
         try
         {
+            var userRole = GetCurrentUserRole();
+            
+            // Check if user is authorized to delete performance records
+            if (userRole != UserRole.Admin && userRole != UserRole.DevAuth)
+            {
+                return Forbid();
+            }
+
             if (!await _performanceService.ExistsAsync(id, cancellationToken))
             {
                 return NotFound(new { error = "Performance record not found." });

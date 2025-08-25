@@ -136,9 +136,19 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-// Add Entity Framework
-builder.Services.AddDbContext<EduShieldDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+// Add Entity Framework - conditionally based on environment
+if (builder.Environment.IsEnvironment("Test"))
+{
+    // Use in-memory database for testing
+    builder.Services.AddDbContext<EduShieldDbContext>(options =>
+        options.UseInMemoryDatabase("TestDatabase"));
+}
+else
+{
+    // Use PostgreSQL for development and production
+    builder.Services.AddDbContext<EduShieldDbContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+}
 
 // Add Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -156,10 +166,20 @@ builder.Services.AddScoped<IFacultyService, FacultyService>();
 builder.Services.AddScoped<IStudentPerformanceService, StudentPerformanceService>();
 builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 
-// Add Health Checks
-builder.Services.AddHealthChecks()
-    .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!)
-    .AddDbContextCheck<EduShieldDbContext>();
+// Add Health Checks - conditionally based on environment
+if (builder.Environment.IsEnvironment("Test"))
+{
+    // Only add DbContext check for testing
+    builder.Services.AddHealthChecks()
+        .AddDbContextCheck<EduShieldDbContext>();
+}
+else
+{
+    // Add full health checks for development and production
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!)
+        .AddDbContextCheck<EduShieldDbContext>();
+}
 
 // Add Redis Cache (optional)
 builder.Services.AddStackExchangeRedisCache(options =>
@@ -187,7 +207,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+ // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -217,11 +237,17 @@ app.MapControllers();
 // Map Health Checks
 app.MapHealthChecks("/health");
 
-// Seed test data
-using (var scope = app.Services.CreateScope())
+// Seed test data only when NOT in test environment
+if (!app.Environment.IsEnvironment("Test"))
 {
-    var seeder = scope.ServiceProvider.GetRequiredService<ITestDataSeeder>();
-    await seeder.SeedUsersAsync();
+    using (var scope = app.Services.CreateScope())
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<ITestDataSeeder>();
+        await seeder.SeedUsersAsync();
+    }
 }
 
 app.Run();
+
+// Make Program class accessible for testing
+public partial class Program { }
