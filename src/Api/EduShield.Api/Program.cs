@@ -155,6 +155,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IFacultyRepository, FacultyRepository>();
 builder.Services.AddScoped<IStudentPerformanceRepository, StudentPerformanceRepository>();
+builder.Services.AddScoped<IStudentFeeRepository, StudentFeeRepository>();
 
 // Add Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -164,6 +165,9 @@ builder.Services.AddScoped<ITestDataSeeder, TestDataSeeder>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IFacultyService, FacultyService>();
 builder.Services.AddScoped<IStudentPerformanceService, StudentPerformanceService>();
+builder.Services.AddScoped<IStudentFeeService, StudentFeeService>();
+builder.Services.AddScoped<IFeeCalculatorService, FeeCalculatorService>();
+builder.Services.AddScoped<IPaymentService, MockPaymentService>();
 builder.Services.AddScoped<IEncryptionService, EncryptionService>();
 
 // Add Health Checks - conditionally based on environment

@@ -1,6 +1,9 @@
 using EduShield.Core.Entities;
 using EduShield.Core.Enums;
 using EduShield.Core.Interfaces;
+using EduShield.Core.Data;
+using EduShield.Core.Security;
+using System.Linq;
 
 namespace EduShield.Core.Services;
 
@@ -12,10 +15,23 @@ public interface ITestDataSeeder
 public class TestDataSeeder : ITestDataSeeder
 {
     private readonly IUserRepository _userRepository;
+    private readonly IStudentFeeRepository _feeRepository;
+    private readonly IStudentRepository _studentRepository;
+    private readonly IFacultyRepository _facultyRepository; // Added _facultyRepository
+    private readonly IEncryptionService _encryptionService;
 
-    public TestDataSeeder(IUserRepository userRepository)
+    public TestDataSeeder(
+        IUserRepository userRepository,
+        IStudentFeeRepository feeRepository,
+        IStudentRepository studentRepository,
+        IFacultyRepository facultyRepository, // Added _facultyRepository
+        IEncryptionService encryptionService)
     {
         _userRepository = userRepository;
+        _feeRepository = feeRepository;
+        _studentRepository = studentRepository;
+        _facultyRepository = facultyRepository; // Initialize _facultyRepository
+        _encryptionService = encryptionService;
     }
 
     public async Task SeedUsersAsync()
@@ -64,6 +80,156 @@ public class TestDataSeeder : ITestDataSeeder
             if (!await _userRepository.ExistsAsync(user.Email))
             {
                 await _userRepository.CreateAsync(user);
+            }
+        }
+
+        // Seed students for users with Student role
+        await SeedStudentsAsync();
+        
+        // Seed faculty for users with Faculty role
+        await SeedFacultyAsync();
+
+        // Seed sample fee data
+        await SeedSampleFeesAsync();
+    }
+
+    private async Task SeedStudentsAsync()
+    {
+        // Get all users and filter by role since GetByRoleAsync doesn't exist
+        var allUsers = await _userRepository.GetAllAsync();
+        var studentUsers = allUsers.Where(u => u.Role == UserRole.Student);
+        
+        foreach (var user in studentUsers)
+        {
+            var existingStudent = await _studentRepository.GetByEmailAsync(user.Email);
+            if (existingStudent == null)
+            {
+                var student = new Student
+                {
+                    Id = Guid.NewGuid(),
+                    FirstName = user.Name.Split(' ')[0],
+                    LastName = user.Name.Split(' ').Length > 1 ? string.Join(" ", user.Name.Split(' ').Skip(1)) : "",
+                    Email = user.Email,
+                    PhoneNumber = "+1234567890",
+                    DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    Address = "123 Student Street, City, State",
+                    Gender = Gender.Male,
+                    RollNumber = $"student_{DateTime.UtcNow.Ticks % 10000}",
+                    EnrollmentDate = DateTime.UtcNow.AddYears(-1),
+                    Status = StudentStatus.Active,
+                    Grade = "12",
+                    Section = "A",
+                    UserId = user.Id
+                };
+                
+                await _studentRepository.CreateAsync(student);
+            }
+        }
+    }
+
+    private async Task SeedFacultyAsync()
+    {
+        // Get all users and filter by role since GetByRoleAsync doesn't exist
+        var allUsers = await _userRepository.GetAllAsync();
+        var facultyUsers = allUsers.Where(u => u.Role == UserRole.Faculty);
+        
+        foreach (var user in facultyUsers)
+        {
+            var existingFaculty = await _facultyRepository.GetByEmailAsync(user.Email);
+            if (existingFaculty == null)
+            {
+                var faculty = new Faculty
+                {
+                    Id = Guid.NewGuid(),
+                    FirstName = user.Name.Split(' ')[0],
+                    LastName = user.Name.Split(' ').Length > 1 ? string.Join(" ", user.Name.Split(' ').Skip(1)) : "",
+                    Email = user.Email,
+                    PhoneNumber = "+1234567890",
+                    DateOfBirth = new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    Address = "456 Faculty Avenue, City, State",
+                    Gender = Gender.Male,
+                    EmployeeId = $"faculty_{DateTime.UtcNow.Ticks % 10000}",
+                    HireDate = DateTime.UtcNow.AddYears(-2),
+                    Department = "Computer Science",
+                    Subject = "Programming",
+                    IsActive = true,
+                    UserId = user.Id
+                };
+                
+                await _facultyRepository.CreateAsync(faculty);
+            }
+        }
+    }
+
+    private async Task SeedSampleFeesAsync()
+    {
+        // Get existing students to create fees for
+        var students = await _studentRepository.GetAllAsync();
+        if (!students.Any())
+        {
+            return; // No students to create fees for
+        }
+
+        var sampleFees = new List<StudentFee>();
+        var terms = new[] { "2024-Q1", "2024-Q2", "2024-Q3", "2024-Q4" };
+        var feeTypes = Enum.GetValues<FeeType>();
+
+        foreach (var student in students.Take(3)) // Create fees for first 3 students
+        {
+            foreach (var term in terms)
+            {
+                foreach (var feeType in feeTypes)
+                {
+                    var dueDate = term switch
+                    {
+                        "2024-Q1" => new DateTime(2024, 3, 31, 0, 0, 0, DateTimeKind.Utc),
+                        "2024-Q2" => new DateTime(2024, 6, 30, 0, 0, 0, DateTimeKind.Utc),
+                        "2024-Q3" => new DateTime(2024, 9, 30, 0, 0, 0, DateTimeKind.Utc),
+                        "2024-Q4" => new DateTime(2024, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+                        _ => DateTime.UtcNow.AddMonths(3)
+                    };
+
+                    var totalAmount = feeType switch
+                    {
+                        FeeType.Tuition => 5000m,
+                        FeeType.Exam => 1000m,
+                        FeeType.Transport => 2000m,
+                        FeeType.Library => 500m,
+                        FeeType.Misc => 300m,
+                        _ => 1000m
+                    };
+
+                    var fee = new StudentFee
+                    {
+                        StudentId = student.Id,
+                        FeeType = feeType,
+                        Term = term,
+                        PaymentStatus = PaymentStatus.Pending,
+                        DueDate = dueDate,
+                        Notes = $"Sample {feeType} fee for {term}"
+                    };
+
+                    // Set encrypted fields using the encryption service
+                    fee.EncryptedTotalAmount = _encryptionService.EncryptDecimal(totalAmount);
+                    fee.EncryptedAmountPaid = _encryptionService.EncryptDecimal(0m);
+                    fee.EncryptedAmountDue = _encryptionService.EncryptDecimal(totalAmount);
+                    fee.EncryptedFineAmount = _encryptionService.EncryptDecimal(0m);
+
+                    sampleFees.Add(fee);
+                }
+            }
+        }
+
+        // Create fees in batches, checking for existing fees by StudentId, FeeType, and Term
+        foreach (var fee in sampleFees)
+        {
+            // Check if a fee with the same StudentId, FeeType, and Term already exists
+            var existingFees = await _feeRepository.GetByStudentIdAsync(fee.StudentId);
+            var feeExists = existingFees.Any(f => f.FeeType == fee.FeeType && f.Term == fee.Term);
+            
+            if (!feeExists)
+            {
+                await _feeRepository.CreateAsync(fee);
             }
         }
     }

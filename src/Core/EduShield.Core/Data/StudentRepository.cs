@@ -34,6 +34,16 @@ public class StudentRepository : IStudentRepository
             .FirstOrDefaultAsync(s => s.Email == email, cancellationToken);
     }
 
+    public async Task<Student?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Students
+            .Include(s => s.User)
+            .Include(s => s.Parent)
+            .Include(s => s.StudentFaculties)
+                .ThenInclude(sf => sf.Faculty)
+            .FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);
+    }
+
     public async Task<Student?> GetByRollNumberAsync(string rollNumber, CancellationToken cancellationToken = default)
     {
         return await _context.Students

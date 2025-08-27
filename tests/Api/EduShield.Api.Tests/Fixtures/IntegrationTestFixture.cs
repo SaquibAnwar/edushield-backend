@@ -7,6 +7,7 @@ using EduShield.Api;
 using EduShield.Core.Data;
 using EduShield.Core.Entities;
 using EduShield.Core.Enums;
+using EduShield.Core.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.TestHost;
 using System.Security.Claims;
@@ -143,6 +144,9 @@ public abstract class IntegrationTestFixture : BaseTestFixture
             
             DbContext.StudentPerformances.AddRange(performance1, performance2);
             DbContext.SaveChanges();
+
+            // Note: TestDataSeeder is not called here to avoid duplicate fee creation
+            // The basic test data (users, students, faculty) is sufficient for most tests
         }
         catch (Exception ex)
         {
