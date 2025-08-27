@@ -19,6 +19,9 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Explicitly configure URLs to avoid conflicts - using port 8080
+builder.WebHost.UseUrls("http://localhost:8080");
+
 // Add Serilog
 builder.Host.UseSerilog((ctx, services, lc) => lc
     .ReadFrom.Configuration(ctx.Configuration)
@@ -49,7 +52,7 @@ var authConfig = new AuthenticationConfiguration
     {
         ClientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? "your-google-client-id",
         ClientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET") ?? "your-google-client-secret",
-        RedirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI") ?? "http://localhost:5000/api/v1/auth/google/callback"
+        RedirectUri = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URI") ?? "http://localhost:8080/api/v1/auth/google/callback"
     },
     EnableDevAuth = bool.TryParse(Environment.GetEnvironmentVariable("ENABLE_DEV_AUTH"), out var enableDevAuth) ? enableDevAuth : true
 };
@@ -191,13 +194,6 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
 });
 
-// Configure HTTPS Redirection
-builder.Services.AddHttpsRedirection(options =>
-{
-    options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
-    options.HttpsPort = 5001;
-});
-
 // Add CORS
 builder.Services.AddCors(options =>
 {
@@ -225,7 +221,7 @@ if (app.Environment.IsDevelopment())
 // Only use HTTPS redirection in production
 if (!app.Environment.IsDevelopment())
 {
-    app.UseHttpsRedirection();
+    // HTTPS redirection removed to avoid conflicts with launch settings
 }
 
 app.UseCors("AllowAll");

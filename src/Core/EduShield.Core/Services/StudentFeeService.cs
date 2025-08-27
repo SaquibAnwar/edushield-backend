@@ -305,7 +305,7 @@ public class StudentFeeService : IStudentFeeService
         return updatedCount;
     }
     
-    private async Task RecalculateFeeAmountsAsync(StudentFee fee)
+    private Task RecalculateFeeAmountsAsync(StudentFee fee)
     {
         // Calculate fine amount based on current due date
         var fineAmount = _feeCalculator.CalculateLateFee(fee.DueDate);
@@ -319,6 +319,8 @@ public class StudentFeeService : IStudentFeeService
         
         // Determine payment status
         fee.PaymentStatus = _feeCalculator.DeterminePaymentStatus(totalAmount, amountPaid, fineAmount);
+        
+        return Task.CompletedTask;
     }
     
     private StudentFeeDto MapToDto(StudentFee fee)

@@ -132,30 +132,30 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<AuthResult> RefreshTokenAsync(string refreshToken)
+    public Task<AuthResult> RefreshTokenAsync(string refreshToken)
     {
         if (!_jwtService.ValidateRefreshToken(refreshToken))
         {
-            return new AuthResult
+            return Task.FromResult(new AuthResult
             {
                 Success = false,
                 ErrorMessage = "Invalid refresh token"
-            };
+            });
         }
 
         // In production, you'd validate the refresh token against the database
         // For now, we'll return an error suggesting to re-authenticate
-        return new AuthResult
+        return Task.FromResult(new AuthResult
         {
             Success = false,
             ErrorMessage = "Please re-authenticate"
-        };
+        });
     }
 
-    public async Task<bool> RevokeTokenAsync(string refreshToken)
+    public Task<bool> RevokeTokenAsync(string refreshToken)
     {
         // In production, you'd invalidate the refresh token in the database
-        return true;
+        return Task.FromResult(true);
     }
 
     private static UserDto MapToUserDto(Entities.User user)

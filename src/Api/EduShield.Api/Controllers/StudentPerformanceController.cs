@@ -184,7 +184,7 @@ public class StudentPerformanceController : ControllerBase
 
             // Check authorization using the requirement
             var requirement = new StudentPerformanceAccessRequirement { ReadOnly = true };
-            var authResult = await CheckAuthorizationAsync(requirement, performance);
+            var authResult = CheckAuthorizationAsync(requirement, performance);
             
             if (!authResult)
             {
@@ -511,7 +511,7 @@ public class StudentPerformanceController : ControllerBase
         return null;
     }
 
-    private async Task<bool> CheckAuthorizationAsync(StudentPerformanceAccessRequirement requirement, StudentPerformanceDto performance)
+    private bool CheckAuthorizationAsync(StudentPerformanceAccessRequirement requirement, StudentPerformanceDto performance)
     {
         // This is a simplified authorization check
         // In a real implementation, you would use the authorization handler

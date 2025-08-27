@@ -16,7 +16,7 @@ public class GoogleAuthService : IGoogleAuthService
         _googleSettings = authConfig.Value.Google;
     }
 
-    public async Task<GoogleUserInfo?> VerifyGoogleTokenAsync(string idToken)
+    public Task<GoogleUserInfo?> VerifyGoogleTokenAsync(string idToken)
     {
         try
         {
@@ -25,23 +25,25 @@ public class GoogleAuthService : IGoogleAuthService
             var handler = new JwtSecurityTokenHandler();
             var token = handler.ReadJwtToken(idToken);
 
-            var claims = token.Claims.ToDictionary(c => c.Type, c => c.Value);
+            var claims = token.Claims.ToDictionary(c => c.Type, c => c.Value, StringComparer.OrdinalIgnoreCase);
 
             if (!claims.ContainsKey("sub") || !claims.ContainsKey("email"))
-                return null;
+                return Task.FromResult<GoogleUserInfo?>(null);
 
-            return new GoogleUserInfo
+            var userInfo = new GoogleUserInfo
             {
                 Sub = claims["sub"],
                 Email = claims["email"],
-                Name = claims.GetValueOrDefault("name", ""),
-                Picture = claims.GetValueOrDefault("picture", null),
-                EmailVerified = bool.Parse(claims.GetValueOrDefault("email_verified", "false"))
+                Name = claims.TryGetValue("name", out var name) ? name : "",
+                Picture = claims.TryGetValue("picture", out var picture) ? picture : null,
+                EmailVerified = claims.TryGetValue("email_verified", out var emailVerified) && bool.TryParse(emailVerified, out var verified) && verified
             };
+
+            return Task.FromResult<GoogleUserInfo?>(userInfo);
         }
         catch
         {
-            return null;
+            return Task.FromResult<GoogleUserInfo?>(null);
         }
     }
 }

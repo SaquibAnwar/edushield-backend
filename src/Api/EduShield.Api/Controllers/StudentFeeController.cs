@@ -190,7 +190,7 @@ public class StudentFeeController : ControllerBase
 
             // Check authorization using the requirement
             var requirement = new StudentFeeAccessRequirement { ReadOnly = true };
-            var authResult = await CheckAuthorizationAsync(requirement, fee);
+            var authResult = CheckAuthorizationAsync(requirement, fee);
             
             if (!authResult)
             {
@@ -387,6 +387,10 @@ public class StudentFeeController : ControllerBase
             if (userRole == UserRole.Student)
             {
                 // For students, check if they own this fee by getting their student profile
+                if (!userId.HasValue)
+                {
+                    return Unauthorized(new { error = "User ID not found." });
+                }
                 var studentFees = await _feeService.GetByUserIdAsync(userId.Value, cancellationToken);
                 var ownsFee = studentFees.Any(f => f.Id == id);
                 if (!ownsFee)
@@ -594,7 +598,7 @@ public class StudentFeeController : ControllerBase
         return null;
     }
 
-    private async Task<bool> CheckAuthorizationAsync(StudentFeeAccessRequirement requirement, StudentFeeDto fee)
+    private bool CheckAuthorizationAsync(StudentFeeAccessRequirement requirement, StudentFeeDto fee)
     {
         // This is a simplified authorization check
         // In a real implementation, you would use the authorization handler
