@@ -3,6 +3,7 @@ using System;
 using EduShield.Core.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EduShield.Core.Migrations
 {
     [DbContext(typeof(EduShieldDbContext))]
-    partial class EduShieldDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250825082926_AddStudentFeeModule")]
+    partial class AddStudentFeeModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -217,6 +220,12 @@ namespace EduShield.Core.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("AmountDue")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("AmountPaid")
+                        .HasColumnType("numeric");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -242,6 +251,9 @@ namespace EduShield.Core.Migrations
                     b.Property<int>("FeeType")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("FineAmount")
+                        .HasColumnType("numeric");
+
                     b.Property<DateTime?>("LastPaymentDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -259,6 +271,9 @@ namespace EduShield.Core.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");

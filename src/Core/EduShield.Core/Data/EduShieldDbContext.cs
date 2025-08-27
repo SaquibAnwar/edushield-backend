@@ -14,6 +14,7 @@ public class EduShieldDbContext : DbContext
     public DbSet<Faculty> Faculty { get; set; }
     public DbSet<StudentFaculty> StudentFaculties { get; set; }
     public DbSet<StudentPerformance> StudentPerformances { get; set; }
+    public DbSet<StudentFee> StudentFees { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -109,6 +110,26 @@ public class EduShieldDbContext : DbContext
             entity.HasOne(sp => sp.Student)
                 .WithMany()
                 .HasForeignKey(sp => sp.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure StudentFee entity
+        modelBuilder.Entity<StudentFee>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.StudentId, e.FeeType, e.Term }).IsUnique();
+            
+            entity.Property(e => e.Term).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.EncryptedTotalAmount).IsRequired();
+            entity.Property(e => e.EncryptedAmountPaid).IsRequired();
+            entity.Property(e => e.EncryptedAmountDue).IsRequired();
+            entity.Property(e => e.EncryptedFineAmount).IsRequired();
+            entity.Property(e => e.Notes).HasMaxLength(500);
+            
+            // Relationships
+            entity.HasOne(sf => sf.Student)
+                .WithMany()
+                .HasForeignKey(sf => sf.StudentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
