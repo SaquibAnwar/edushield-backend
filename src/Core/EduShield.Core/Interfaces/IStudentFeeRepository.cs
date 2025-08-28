@@ -126,3 +126,4 @@ public interface IStudentFeeRepository
     /// <returns>Fee statistics for the student</returns>
     Task<object> GetStudentFeeStatisticsAsync(Guid studentId, CancellationToken cancellationToken = default);
 }
+

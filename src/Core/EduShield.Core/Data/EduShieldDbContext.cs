@@ -12,7 +12,9 @@ public class EduShieldDbContext : DbContext
     public DbSet<Entities.User> Users { get; set; }
     public DbSet<Student> Students { get; set; }
     public DbSet<Faculty> Faculty { get; set; }
+    public DbSet<Parent> Parents { get; set; }
     public DbSet<StudentFaculty> StudentFaculties { get; set; }
+    public DbSet<ParentStudent> ParentStudents { get; set; }
     public DbSet<StudentPerformance> StudentPerformances { get; set; }
     public DbSet<StudentFee> StudentFees { get; set; }
 
@@ -95,6 +97,28 @@ public class EduShieldDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // Configure ParentStudent many-to-many relationship
+        modelBuilder.Entity<ParentStudent>(entity =>
+        {
+            entity.HasKey(ps => new { ps.ParentId, ps.StudentId });
+            
+            entity.Property(ps => ps.Relationship).IsRequired().HasMaxLength(50);
+            entity.Property(ps => ps.Notes).HasMaxLength(500);
+            entity.HasIndex(ps => ps.ParentId);
+            entity.HasIndex(ps => ps.StudentId);
+            entity.HasIndex(ps => new { ps.StudentId, ps.IsPrimaryContact });
+            
+            entity.HasOne(ps => ps.Parent)
+                .WithMany(p => p.ParentStudents)
+                .HasForeignKey(ps => ps.ParentId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            entity.HasOne(ps => ps.Student)
+                .WithMany(s => s.ParentStudents)
+                .HasForeignKey(ps => ps.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Configure StudentPerformance entity
         modelBuilder.Entity<StudentPerformance>(entity =>
         {
@@ -111,6 +135,48 @@ public class EduShieldDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(sp => sp.StudentId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure Parent entity
+        modelBuilder.Entity<Parent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.PhoneNumber);
+            entity.HasIndex(e => e.City);
+            entity.HasIndex(e => e.State);
+            
+            entity.Property(e => e.FirstName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.LastName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.PhoneNumber).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.AlternatePhoneNumber).HasMaxLength(20);
+            entity.Property(e => e.Address).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.State).HasMaxLength(100);
+            entity.Property(e => e.PostalCode).HasMaxLength(20);
+            entity.Property(e => e.Country).HasMaxLength(100);
+            entity.Property(e => e.Occupation).HasMaxLength(100);
+            entity.Property(e => e.Employer).HasMaxLength(100);
+            entity.Property(e => e.WorkPhone).HasMaxLength(20);
+            entity.Property(e => e.EmergencyContactName).HasMaxLength(100);
+            entity.Property(e => e.EmergencyContactPhone).HasMaxLength(20);
+            entity.Property(e => e.EmergencyContactRelationship).HasMaxLength(50);
+            entity.Property(e => e.ParentType).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
+            
+            // Relationships
+            entity.HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            // One-to-many relationship with Student
+            entity.HasMany(p => p.Children)
+                .WithOne(s => s.Parent)
+                .HasForeignKey(s => s.ParentId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Configure StudentFee entity

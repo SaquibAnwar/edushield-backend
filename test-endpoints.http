@@ -1,0 +1,91 @@
+### Test Parent Endpoints
+
+# Test 1: Search Parents (Admin Only)
+GET http://localhost:8080/api/v1/parents/search?q=Saquib
+Authorization: Bearer {{admin_token}}
+
+###
+
+# Test 2: Get All Parents (Admin Only)
+GET http://localhost:8080/api/v1/parents
+Authorization: Bearer {{admin_token}}
+
+###
+
+# Test 3: Get Parent Profile (Parent Portal)
+GET http://localhost:8080/api/v1/parents/profile
+Authorization: Bearer {{parent_token}}
+
+###
+
+# Test 4: DevAuth Access Test
+GET http://localhost:8080/api/v1/test/dev-auth-only
+Authorization: Bearer {{devauth_token}}
+
+###
+
+# Test 5: Create New Parent (Admin Only)
+POST http://localhost:8080/api/v1/parents
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phoneNumber": "+1234567890",
+  "dateOfBirth": "1980-01-01T00:00:00Z",
+  "address": "123 Main St",
+  "city": "New York",
+  "state": "NY",
+  "postalCode": "10001",
+  "country": "USA",
+  "gender": 1,
+  "occupation": "Engineer",
+  "employer": "Tech Corp",
+  "workPhone": "+1234567891",
+  "emergencyContactName": "Jane Doe",
+  "emergencyContactPhone": "+1234567892",
+  "emergencyContactRelationship": "Spouse",
+  "parentType": 0,
+  "isEmergencyContact": true,
+  "isAuthorizedToPickup": true
+}
+
+###
+
+# Test 6: Get Parent by Email (Admin Only)
+GET http://localhost:8080/api/v1/parents/by-email/kirakryto9ite@gmail.com
+Authorization: Bearer {{admin_token}}
+
+###
+
+# Test 7: Get Parent by User ID
+GET http://localhost:8080/api/v1/parents/by-user/{{parent_user_id}}
+Authorization: Bearer {{parent_token}}
+
+###
+
+# Test 8: Health Check
+GET http://localhost:8080/health
+
+###
+
+# Test 9: Test Authentication (Admin)
+GET http://localhost:8080/api/v1/test/admin-only
+Authorization: Bearer {{admin_token}}
+
+###
+
+# Test 10: Test Authentication (Parent)
+GET http://localhost:8080/api/v1/test/parent-only
+Authorization: Bearer {{parent_token}}
+
+###
+
+# Test 11: Test Authentication (DevAuth)
+GET http://localhost:8080/api/v1/test/dev-auth-only
+Authorization: Bearer {{devauth_token}}
+
+###
+

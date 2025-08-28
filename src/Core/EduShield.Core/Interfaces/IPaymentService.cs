@@ -36,3 +36,4 @@ public interface IPaymentService
     /// <returns>True if refund is successful, false otherwise</returns>
     Task<bool> RefundPaymentAsync(string transactionId, decimal? amount = null);
 }
+

@@ -17,6 +17,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore.InMemory;
 
 namespace EduShield.Api.Tests.Fixtures;
 
@@ -34,6 +35,9 @@ public abstract class IntegrationTestFixture : BaseTestFixture
     public override void Setup()
     {
         base.Setup();
+
+        // Set environment variable to ensure in-memory database is used
+        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Test");
 
         // Create test application factory
         Factory = new WebApplicationFactory<Program>()
@@ -264,20 +268,19 @@ public class TestAuthenticationHandler : AuthenticationHandler<TestAuthenticatio
     {
         if (CurrentRole == null || CurrentUserId == null)
         {
-            return Task.FromResult(AuthenticateResult.Fail("No test authentication context"));
+            return Task.FromResult(AuthenticateResult.Fail("No authentication"));
         }
 
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, CurrentUserId.Value.ToString()),
-            new Claim(ClaimTypes.Role, CurrentRole.ToString()),
-            new Claim("role", CurrentRole.ToString()),
-            new Claim("userId", CurrentUserId.Value.ToString())
+            new Claim(ClaimTypes.Role, CurrentRole.Value.ToString()),
+            new Claim(ClaimTypes.Name, $"test-{CurrentRole.Value.ToString().ToLower()}")
         };
 
-        var identity = new ClaimsIdentity(claims, "Test");
+        var identity = new ClaimsIdentity(claims, Scheme.Name);
         var principal = new ClaimsPrincipal(identity);
-        var ticket = new AuthenticationTicket(principal, "Test");
+        var ticket = new AuthenticationTicket(principal, Scheme.Name);
 
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }

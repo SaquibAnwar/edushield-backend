@@ -214,8 +214,8 @@ public class StudentService : IStudentService
             {
                 Id = student.Parent.Id,
                 Email = student.Parent.Email,
-                Name = student.Parent.Name,
-                Role = student.Parent.Role,
+                Name = student.Parent.FullName,
+                Role = UserRole.Parent,
                 IsActive = student.Parent.IsActive,
                 CreatedAt = student.Parent.CreatedAt,
                 UpdatedAt = student.Parent.UpdatedAt

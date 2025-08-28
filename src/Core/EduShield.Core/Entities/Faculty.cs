@@ -33,4 +33,52 @@ public class Faculty : AuditableEntity
     public string FullName => $"{FirstName} {LastName}".Trim();
     public int Age => DateTime.Today.Year - DateOfBirth.Year - (DateTime.Today < DateOfBirth.AddYears(DateTime.Today.Year - DateOfBirth.Year) ? 1 : 0);
     public int YearsOfService => DateTime.Today.Year - HireDate.Year - (DateTime.Today < HireDate.AddYears(DateTime.Today.Year - HireDate.Year) ? 1 : 0);
+    
+    // Helper methods for managing student assignments
+    public void AssignStudent(Guid studentId, string? notes = null)
+    {
+        if (!StudentFaculties.Any(sf => sf.StudentId == studentId))
+        {
+            StudentFaculties.Add(new StudentFaculty
+            {
+                StudentId = studentId,
+                FacultyId = Id,
+                AssignedDate = DateTime.UtcNow,
+                IsActive = true,
+                Notes = notes
+            });
+        }
+    }
+    
+    public void RemoveStudent(Guid studentId)
+    {
+        var assignment = StudentFaculties.FirstOrDefault(sf => sf.StudentId == studentId);
+        if (assignment != null)
+        {
+            StudentFaculties.Remove(assignment);
+        }
+    }
+    
+    public void DeactivateStudentAssignment(Guid studentId)
+    {
+        var assignment = StudentFaculties.FirstOrDefault(sf => sf.StudentId == studentId);
+        if (assignment != null)
+        {
+            assignment.IsActive = false;
+        }
+    }
+    
+    public void ActivateStudentAssignment(Guid studentId)
+    {
+        var assignment = StudentFaculties.FirstOrDefault(sf => sf.StudentId == studentId);
+        if (assignment != null)
+        {
+            assignment.IsActive = true;
+        }
+    }
+    
+    public bool HasStudentAssigned(Guid studentId)
+    {
+        return StudentFaculties.Any(sf => sf.StudentId == studentId);
+    }
 }

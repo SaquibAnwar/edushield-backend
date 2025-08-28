@@ -17,20 +17,23 @@ public class TestDataSeeder : ITestDataSeeder
     private readonly IUserRepository _userRepository;
     private readonly IStudentFeeRepository _feeRepository;
     private readonly IStudentRepository _studentRepository;
-    private readonly IFacultyRepository _facultyRepository; // Added _facultyRepository
+    private readonly IFacultyRepository _facultyRepository;
+    private readonly IParentRepository _parentRepository; // Added _parentRepository
     private readonly IEncryptionService _encryptionService;
 
     public TestDataSeeder(
         IUserRepository userRepository,
         IStudentFeeRepository feeRepository,
         IStudentRepository studentRepository,
-        IFacultyRepository facultyRepository, // Added _facultyRepository
+        IFacultyRepository facultyRepository,
+        IParentRepository parentRepository, // Added _parentRepository
         IEncryptionService encryptionService)
     {
         _userRepository = userRepository;
         _feeRepository = feeRepository;
         _studentRepository = studentRepository;
-        _facultyRepository = facultyRepository; // Initialize _facultyRepository
+        _facultyRepository = facultyRepository;
+        _parentRepository = parentRepository; // Initialize _parentRepository
         _encryptionService = encryptionService;
     }
 
@@ -88,6 +91,9 @@ public class TestDataSeeder : ITestDataSeeder
         
         // Seed faculty for users with Faculty role
         await SeedFacultyAsync();
+
+        // Seed parents for users with Parent role
+        await SeedParentsAsync();
 
         // Seed sample fee data
         await SeedSampleFeesAsync();
@@ -161,6 +167,49 @@ public class TestDataSeeder : ITestDataSeeder
         }
     }
 
+    private async Task SeedParentsAsync()
+    {
+        // Get all users and filter by role since GetByRoleAsync doesn't exist
+        var allUsers = await _userRepository.GetAllAsync();
+        var parentUsers = allUsers.Where(u => u.Role == UserRole.Parent);
+        
+        foreach (var user in parentUsers)
+        {
+            var existingParent = await _parentRepository.GetByEmailAsync(user.Email);
+            if (existingParent == null)
+            {
+                var parent = new Parent
+                {
+                    Id = Guid.NewGuid(),
+                    FirstName = user.Name.Split(' ')[0],
+                    LastName = user.Name.Split(' ').Length > 1 ? string.Join(" ", user.Name.Split(' ').Skip(1)) : "",
+                    Email = user.Email,
+                    PhoneNumber = "+1234567890",
+                    DateOfBirth = new DateTime(1975, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    Address = "789 Parent Lane, City, State",
+                    City = "City",
+                    State = "State",
+                    PostalCode = "12345",
+                    Country = "USA",
+                    Gender = Gender.Male,
+                    Occupation = "Software Engineer",
+                    Employer = "Tech Company",
+                    WorkPhone = "+1234567891",
+                    EmergencyContactName = "Emergency Contact",
+                    EmergencyContactPhone = "+1234567892",
+                    EmergencyContactRelationship = "Spouse",
+                    ParentType = ParentType.Primary,
+                    IsEmergencyContact = true,
+                    IsAuthorizedToPickup = true,
+                    IsActive = true,
+                    UserId = user.Id
+                };
+                
+                await _parentRepository.AddAsync(parent);
+            }
+        }
+    }
+
     private async Task SeedSampleFeesAsync()
     {
         // Get existing students to create fees for
@@ -225,7 +274,7 @@ public class TestDataSeeder : ITestDataSeeder
         {
             // Check if a fee with the same StudentId, FeeType, and Term already exists
             var existingFees = await _feeRepository.GetByStudentIdAsync(fee.StudentId);
-            var feeExists = existingFees.Any(f => f.FeeType == fee.FeeType && f.Term == fee.Term);
+            var feeExists = existingFees.Any(f => f.FeeType == fee.FeeType && f.Term == f.Term);
             
             if (!feeExists)
             {

@@ -7,8 +7,8 @@ public interface IStudentRepository
 {
     Task<Student?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Student?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
-    Task<Student?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Student?> GetByRollNumberAsync(string rollNumber, CancellationToken cancellationToken = default);
+    Task<Student?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Student>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IEnumerable<Student>> GetByFacultyIdAsync(Guid facultyId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Student>> GetByParentIdAsync(Guid parentId, CancellationToken cancellationToken = default);
