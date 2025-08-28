@@ -64,7 +64,7 @@ public class TestDataSeeder : ITestDataSeeder
             },
             new()
             {
-                Email = "kirakryto9ite@gmail.com",
+                Email = "kirakrypto9ite@gmail.com",
                 Name = "Saquib Parent",
                 Role = UserRole.Parent,
                 IsActive = true
