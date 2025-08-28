@@ -44,3 +44,4 @@ else
     echo "❌ Database restore failed!"
     exit 1
 fi
+

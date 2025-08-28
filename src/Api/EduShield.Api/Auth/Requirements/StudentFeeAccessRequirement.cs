@@ -18,7 +18,7 @@ public class StudentFeeAccessRequirement : IAuthorizationRequirement
     public bool AllowDevAccess { get; set; } = true;
 
     /// <summary>
-    /// Whether to allow faculty access to their assigned students
+    /// Whether to allow faculty access to their assigned students' fees
     /// </summary>
     public bool AllowFacultyAccess { get; set; } = true;
 

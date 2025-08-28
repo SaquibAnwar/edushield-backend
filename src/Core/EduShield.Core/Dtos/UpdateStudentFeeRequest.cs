@@ -42,3 +42,4 @@ public class UpdateStudentFeeRequest
     [StringLength(500, ErrorMessage = "Notes cannot exceed 500 characters")]
     public string? Notes { get; set; }
 }
+

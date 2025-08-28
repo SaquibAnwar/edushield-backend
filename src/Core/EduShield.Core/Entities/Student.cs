@@ -28,7 +28,8 @@ public class Student : AuditableEntity
     
     // Navigation properties
     public User? User { get; set; }
-    public User? Parent { get; set; }
+    public Parent? Parent { get; set; } // Keep for backward compatibility
+    public ICollection<ParentStudent> ParentStudents { get; set; } = [];
     
     // Academic relationships - Many-to-many with Faculty
     public ICollection<StudentFaculty> StudentFaculties { get; set; } = [];
@@ -39,7 +40,7 @@ public class Student : AuditableEntity
     public bool IsEnrolled => Status == StudentStatus.Active;
     
     // Helper methods
-    public void AssignFaculty(Guid facultyId)
+    public void AssignFaculty(Guid facultyId, string? notes = null)
     {
         if (!StudentFaculties.Any(sf => sf.FacultyId == facultyId))
         {
@@ -47,7 +48,9 @@ public class Student : AuditableEntity
             {
                 StudentId = Id,
                 FacultyId = facultyId,
-                AssignedDate = DateTime.UtcNow
+                AssignedDate = DateTime.UtcNow,
+                IsActive = true,
+                Notes = notes
             });
         }
     }
@@ -61,19 +64,107 @@ public class Student : AuditableEntity
         }
     }
     
+    public void DeactivateFacultyAssignment(Guid facultyId)
+    {
+        var assignment = StudentFaculties.FirstOrDefault(sf => sf.FacultyId == facultyId);
+        if (assignment != null)
+        {
+            assignment.IsActive = false;
+        }
+    }
+    
+    public void ActivateFacultyAssignment(Guid facultyId)
+    {
+        var assignment = StudentFaculties.FirstOrDefault(sf => sf.FacultyId == facultyId);
+        if (assignment != null)
+        {
+            assignment.IsActive = true;
+        }
+    }
+    
     public bool IsAssignedToFaculty(Guid facultyId)
     {
         return StudentFaculties.Any(sf => sf.FacultyId == facultyId);
     }
+    
+    // Helper methods for ParentStudent relationships
+    public void AssignParent(Guid parentId, string relationship, bool isPrimaryContact = false, string? notes = null)
+    {
+        if (!ParentStudents.Any(ps => ps.ParentId == parentId))
+        {
+            ParentStudents.Add(new ParentStudent
+            {
+                ParentId = parentId,
+                StudentId = Id,
+                Relationship = relationship,
+                IsPrimaryContact = isPrimaryContact,
+                IsAuthorizedToPickup = true,
+                IsEmergencyContact = true,
+                IsActive = true,
+                Notes = notes
+            });
+            
+            // Update the legacy ParentId field for backward compatibility (especially for primary contact)
+            if (isPrimaryContact || ParentId == null)
+            {
+                ParentId = parentId;
+            }
+        }
+    }
+    
+    public void RemoveParent(Guid parentId)
+    {
+        var relationship = ParentStudents.FirstOrDefault(ps => ps.ParentId == parentId);
+        if (relationship != null)
+        {
+            var wasPrimaryContact = relationship.IsPrimaryContact;
+            ParentStudents.Remove(relationship);
+            
+            // Update the legacy ParentId field for backward compatibility
+            if (wasPrimaryContact && ParentId == parentId)
+            {
+                // Find another active parent to set as primary
+                var newPrimaryParent = ParentStudents.FirstOrDefault(ps => ps.IsActive);
+                if (newPrimaryParent != null)
+                {
+                    ParentId = newPrimaryParent.ParentId;
+                    newPrimaryParent.IsPrimaryContact = true;
+                }
+                else
+                {
+                    ParentId = null;
+                }
+            }
+        }
+    }
+    
+    public bool HasParent(Guid parentId)
+    {
+        return ParentStudents.Any(ps => ps.ParentId == parentId && ps.IsActive);
+    }
+    
+    public Parent? GetPrimaryParent()
+    {
+        return ParentStudents.FirstOrDefault(ps => ps.IsPrimaryContact && ps.IsActive)?.Parent;
+    }
+    
+    public IEnumerable<Parent> GetAllParents()
+    {
+        return ParentStudents.Where(ps => ps.IsActive).Select(ps => ps.Parent).Where(p => p != null);
+    }
+    
+    public int ParentsCount => ParentStudents.Count(ps => ps.IsActive);
 }
 
 // Many-to-many relationship between Student and Faculty
 public class StudentFaculty : AuditableEntity
 {
+    public Guid Id { get; set; }
     public Guid StudentId { get; set; }
     public Guid FacultyId { get; set; }
     public DateTime AssignedDate { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? Notes { get; set; } // Optional notes about the assignment
     
     // Navigation properties
     public Student? Student { get; set; }

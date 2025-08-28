@@ -4,6 +4,7 @@ using EduShield.Core.Security;
 using EduShield.Core.Services;
 using EduShield.Core.Configuration;
 using EduShield.Core.Enums;
+using EduShield.Core.Mapping;
 using EduShield.Api.Auth;
 using EduShield.Api.Auth.Requirements;
 using EduShield.Api.Auth.Handlers;
@@ -97,11 +98,16 @@ builder.Services.AddAuthorization(options =>
     // Student-specific policies
     options.AddPolicy("StudentAccess", policy => 
         policy.Requirements.Add(new StudentAccessRequirement()));
+    
+    // Parent-Student assignment policy - only Admin and DevAuth can manage
+    options.AddPolicy("ParentStudentAssignmentPolicy", policy =>
+        policy.Requirements.Add(new ParentStudentAssignmentRequirement()));
 });
 
 // Add Authorization Handlers
 builder.Services.AddScoped<IAuthorizationHandler, StudentAuthorizationHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, StudentPerformanceAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ParentStudentAssignmentHandler>();
 
 // Add HttpClient for Google Auth
 builder.Services.AddHttpClient();
@@ -139,26 +145,35 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-// Add Entity Framework - conditionally based on environment
-if (builder.Environment.IsEnvironment("Test"))
+// Add Entity Framework - conditionally based on environment and configuration
+var useInMemoryDatabase = builder.Configuration.GetValue<bool>("UseInMemoryDatabase", false);
+
+if (builder.Environment.IsEnvironment("Test") || useInMemoryDatabase)
 {
-    // Use in-memory database for testing
+    // Use in-memory database for testing or development
+    var databaseName = builder.Environment.IsEnvironment("Test") ? "TestDatabase" : "DevelopmentDatabase";
     builder.Services.AddDbContext<EduShieldDbContext>(options =>
-        options.UseInMemoryDatabase("TestDatabase"));
+        options.UseInMemoryDatabase(databaseName));
 }
 else
 {
-    // Use PostgreSQL for development and production
+    // Use PostgreSQL for production
     builder.Services.AddDbContext<EduShieldDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 }
+
+// Add AutoMapper
+builder.Services.AddAutoMapper(typeof(ParentMappingProfile));
 
 // Add Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<IFacultyRepository, FacultyRepository>();
+builder.Services.AddScoped<IParentRepository, ParentRepository>();
 builder.Services.AddScoped<IStudentPerformanceRepository, StudentPerformanceRepository>();
 builder.Services.AddScoped<IStudentFeeRepository, StudentFeeRepository>();
+builder.Services.AddScoped<IFacultyStudentAssignmentRepository, FacultyStudentAssignmentRepository>();
+builder.Services.AddScoped<IParentStudentAssignmentRepository, ParentStudentAssignmentRepository>();
 
 // Add Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -167,22 +182,25 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ITestDataSeeder, TestDataSeeder>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IFacultyService, FacultyService>();
+builder.Services.AddScoped<IParentService, ParentService>();
 builder.Services.AddScoped<IStudentPerformanceService, StudentPerformanceService>();
 builder.Services.AddScoped<IStudentFeeService, StudentFeeService>();
 builder.Services.AddScoped<IFeeCalculatorService, FeeCalculatorService>();
 builder.Services.AddScoped<IPaymentService, MockPaymentService>();
 builder.Services.AddScoped<IEncryptionService, EncryptionService>();
+builder.Services.AddScoped<IFacultyStudentAssignmentService, FacultyStudentAssignmentService>();
+builder.Services.AddScoped<IParentStudentAssignmentService, ParentStudentAssignmentService>();
 
-// Add Health Checks - conditionally based on environment
-if (builder.Environment.IsEnvironment("Test"))
+// Add Health Checks - conditionally based on environment and configuration
+if (builder.Environment.IsEnvironment("Test") || useInMemoryDatabase)
 {
-    // Only add DbContext check for testing
+    // Only add DbContext check for testing or development
     builder.Services.AddHealthChecks()
         .AddDbContextCheck<EduShieldDbContext>();
 }
 else
 {
-    // Add full health checks for development and production
+    // Add full health checks for production
     builder.Services.AddHealthChecks()
         .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!)
         .AddDbContextCheck<EduShieldDbContext>();
@@ -237,8 +255,8 @@ app.MapControllers();
 // Map Health Checks
 app.MapHealthChecks("/health");
 
-// Seed test data only when NOT in test environment
-if (!app.Environment.IsEnvironment("Test"))
+// Seed test data only when NOT in test environment and NOT using in-memory database
+if (!app.Environment.IsEnvironment("Test") && !useInMemoryDatabase)
 {
     using (var scope = app.Services.CreateScope())
     {

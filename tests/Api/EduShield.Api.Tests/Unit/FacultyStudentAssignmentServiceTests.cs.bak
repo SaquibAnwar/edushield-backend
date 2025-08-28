@@ -1,0 +1,523 @@
+using NUnit.Framework;
+using Moq;
+using EduShield.Core.Services;
+using EduShield.Core.Interfaces;
+using EduShield.Core.Entities;
+using EduShield.Core.Dtos;
+using EduShield.Core.Enums;
+using FluentAssertions;
+
+namespace EduShield.Api.Tests.Unit;
+
+[TestFixture]
+public class FacultyStudentAssignmentServiceTests
+{
+    private Mock<IFacultyStudentAssignmentRepository> _mockAssignmentRepository;
+    private Mock<IFacultyRepository> _mockFacultyRepository;
+    private Mock<IStudentRepository> _mockStudentRepository;
+    private FacultyStudentAssignmentService _service;
+
+    [SetUp]
+    public void Setup()
+    {
+        _mockAssignmentRepository = new Mock<IFacultyStudentAssignmentRepository>();
+        _mockFacultyRepository = new Mock<IFacultyRepository>();
+        _mockStudentRepository = new Mock<IStudentRepository>();
+        _service = new FacultyStudentAssignmentService(
+            _mockAssignmentRepository.Object,
+            _mockFacultyRepository.Object,
+            _mockStudentRepository.Object);
+    }
+
+    [TestFixture]
+    public class AssignStudentToFacultyAsyncTests : FacultyStudentAssignmentServiceTests
+    {
+        [Test]
+        public async Task AssignStudentToFacultyAsync_WithValidRequest_ShouldReturnSuccess()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+            var request = new CreateFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentId = studentId,
+                Notes = "Test assignment"
+            };
+
+            var faculty = new Faculty
+            {
+                Id = facultyId,
+                FirstName = "John",
+                LastName = "Doe",
+                Email = "john.doe@example.com",
+                Department = "Computer Science",
+                Subject = "Programming"
+            };
+
+            var student = new Student
+            {
+                Id = studentId,
+                FirstName = "Jane",
+                LastName = "Smith",
+                Email = "jane.smith@example.com",
+                RollNumber = "STU001",
+                Grade = "12",
+                Section = "A"
+            };
+
+            var assignment = new StudentFaculty
+            {
+                FacultyId = facultyId,
+                StudentId = studentId,
+                AssignedDate = DateTime.UtcNow,
+                IsActive = true,
+                Notes = "Test assignment"
+            };
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync(faculty);
+            _mockStudentRepository.Setup(x => x.GetByIdAsync(studentId))
+                .ReturnsAsync(student);
+            _mockAssignmentRepository.Setup(x => x.ExistsAsync(facultyId, studentId))
+                .ReturnsAsync(false);
+            _mockAssignmentRepository.Setup(x => x.CreateAsync(assignment))
+                .ReturnsAsync(assignment);
+
+            // Act
+            var result = await _service.AssignStudentToFacultyAsync(request);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.FacultyId.Should().Be(facultyId);
+            result.Data.StudentId.Should().Be(studentId);
+            result.Data.FacultyName.Should().Be("John Doe");
+            result.Data.StudentName.Should().Be("Jane Smith");
+            result.Message.Should().Contain("successfully");
+        }
+
+        [Test]
+        public async Task AssignStudentToFacultyAsync_WithNonExistentFaculty_ShouldReturnFailure()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+            var request = new CreateFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentId = studentId
+            };
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync((Faculty?)null);
+
+            // Act
+            var result = await _service.AssignStudentToFacultyAsync(request);
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.Message.Should().Contain("Faculty not found");
+        }
+
+        [Test]
+        public async Task AssignStudentToFacultyAsync_WithNonExistentStudent_ShouldReturnFailure()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+            var request = new CreateFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentId = studentId
+            };
+
+            var faculty = new Faculty { Id = facultyId, FirstName = "John", LastName = "Doe" };
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync(faculty);
+            _mockStudentRepository.Setup(x => x.GetByIdAsync(studentId))
+                .ReturnsAsync((Student?)null);
+
+            // Act
+            var result = await _service.AssignStudentToFacultyAsync(request);
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.Message.Should().Contain("Student not found");
+        }
+
+        [Test]
+        public async Task AssignStudentToFacultyAsync_WithExistingAssignment_ShouldReturnFailure()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+            var request = new CreateFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentId = studentId
+            };
+
+            var faculty = new Faculty { Id = facultyId, FirstName = "John", LastName = "Doe" };
+            var student = new Student { Id = studentId, FirstName = "Jane", LastName = "Smith" };
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync(faculty);
+            _mockStudentRepository.Setup(x => x.GetByIdAsync(studentId))
+                .ReturnsAsync(student);
+            _mockAssignmentRepository.Setup(x => x.ExistsAsync(facultyId, studentId))
+                .ReturnsAsync(true);
+
+            // Act
+            var result = await _service.AssignStudentToFacultyAsync(request);
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.Message.Should().Contain("already exists");
+        }
+    }
+
+    [TestFixture]
+    public class BulkAssignStudentsToFacultyAsyncTests : FacultyStudentAssignmentServiceTests
+    {
+        [Test]
+        public async Task BulkAssignStudentsToFacultyAsync_WithValidRequest_ShouldReturnSuccess()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
+            var request = new BulkFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentIds = studentIds,
+                Notes = "Bulk assignment"
+            };
+
+            var faculty = new Faculty { Id = facultyId, FirstName = "John", LastName = "Doe" };
+            var student1 = new Student { Id = studentIds[0], FirstName = "Jane", LastName = "Smith" };
+            var student2 = new Student { Id = studentIds[1], FirstName = "Bob", LastName = "Johnson" };
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync(faculty);
+            _mockStudentRepository.Setup(x => x.GetByIdAsync(studentIds[0]))
+                .ReturnsAsync(student1);
+            _mockStudentRepository.Setup(x => x.GetByIdAsync(studentIds[1]))
+                .ReturnsAsync(student2);
+            _mockAssignmentRepository.Setup(x => x.ExistsAsync(facultyId, studentIds[0]))
+                .ReturnsAsync(false);
+            _mockAssignmentRepository.Setup(x => x.ExistsAsync(facultyId, studentIds[1]))
+                .ReturnsAsync(false);
+            _mockAssignmentRepository.Setup(x => x.CreateAsync(It.IsAny<StudentFaculty>()))
+                .ReturnsAsync(new StudentFaculty());
+
+            // Act
+            var result = await _service.BulkAssignStudentsToFacultyAsync(request);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().HaveCount(2);
+            result.Message.Should().Contain("Successfully assigned 2 students");
+        }
+
+        [Test]
+        public async Task BulkAssignStudentsToFacultyAsync_WithPartialFailures_ShouldReturnPartialSuccess()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
+            var request = new BulkFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentIds = studentIds
+            };
+
+            var faculty = new Faculty { Id = facultyId, FirstName = "John", LastName = "Doe" };
+            var student1 = new Student { Id = studentIds[0], FirstName = "Jane", LastName = "Smith" };
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync(faculty);
+            _mockStudentRepository.Setup(x => x.GetByIdAsync(studentIds[0]))
+                .ReturnsAsync(student1);
+            _mockStudentRepository.Setup(x => x.GetByIdAsync(studentIds[1]))
+                .ReturnsAsync((Student?)null);
+            _mockAssignmentRepository.Setup(x => x.ExistsAsync(facultyId, studentIds[0]))
+                .ReturnsAsync(false);
+            _mockAssignmentRepository.Setup(x => x.CreateAsync(It.IsAny<StudentFaculty>()))
+                .ReturnsAsync(new StudentFaculty());
+
+            // Act
+            var result = await _service.BulkAssignStudentsToFacultyAsync(request);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().HaveCount(1);
+            result.Message.Should().Contain("1 assignments failed");
+        }
+    }
+
+    [TestFixture]
+    public class UpdateAssignmentAsyncTests : FacultyStudentAssignmentServiceTests
+    {
+        [Test]
+        public async Task UpdateAssignmentAsync_WithValidRequest_ShouldReturnSuccess()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+            var request = new UpdateFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentId = studentId,
+                IsActive = false,
+                Notes = "Updated notes"
+            };
+
+            var existingAssignment = new StudentFaculty
+            {
+                FacultyId = facultyId,
+                StudentId = studentId,
+                IsActive = true
+            };
+
+            var updatedAssignment = new StudentFaculty
+            {
+                FacultyId = facultyId,
+                StudentId = studentId,
+                IsActive = false,
+                Notes = "Updated notes"
+            };
+
+            _mockAssignmentRepository.Setup(x => x.GetByFacultyAndStudentAsync(facultyId, studentId))
+                .ReturnsAsync(existingAssignment);
+            _mockAssignmentRepository.Setup(x => x.UpdateAsync(It.IsAny<StudentFaculty>()))
+                .ReturnsAsync(updatedAssignment);
+
+            // Act
+            var result = await _service.UpdateAssignmentAsync(request);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.IsActive.Should().BeFalse();
+            result.Message.Should().Contain("updated successfully");
+        }
+
+        [Test]
+        public async Task UpdateAssignmentAsync_WithNonExistentAssignment_ShouldReturnFailure()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+            var request = new UpdateFacultyStudentAssignmentRequest
+            {
+                FacultyId = facultyId,
+                StudentId = studentId,
+                IsActive = false
+            };
+
+            _mockAssignmentRepository.Setup(x => x.GetByFacultyAndStudentAsync(facultyId, studentId))
+                .ReturnsAsync((StudentFaculty?)null);
+
+            // Act
+            var result = await _service.UpdateAssignmentAsync(request);
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.Message.Should().Contain("not found");
+        }
+    }
+
+    [TestFixture]
+    public class DeactivateAssignmentAsyncTests : FacultyStudentAssignmentServiceTests
+    {
+        [Test]
+        public async Task DeactivateAssignmentAsync_WithValidIds_ShouldReturnSuccess()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+
+            _mockAssignmentRepository.Setup(x => x.DeactivateAsync(facultyId, studentId))
+                .ReturnsAsync(true);
+
+            // Act
+            var result = await _service.DeactivateAssignmentAsync(facultyId, studentId);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().BeTrue();
+            result.Message.Should().Contain("deactivated successfully");
+        }
+
+        [Test]
+        public async Task DeactivateAssignmentAsync_WithNonExistentAssignment_ShouldReturnFailure()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+
+            _mockAssignmentRepository.Setup(x => x.DeactivateAsync(facultyId, studentId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _service.DeactivateAssignmentAsync(facultyId, studentId);
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.Message.Should().Contain("not found or already deactivated");
+        }
+    }
+
+    [TestFixture]
+    public class GetFacultyDashboardAsyncTests : FacultyStudentAssignmentServiceTests
+    {
+        [Test]
+        public async Task GetFacultyDashboardAsync_WithValidFacultyId_ShouldReturnDashboard()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var faculty = new Faculty
+            {
+                Id = facultyId,
+                FirstName = "John",
+                LastName = "Doe",
+                Email = "john.doe@example.com",
+                Department = "Computer Science",
+                Subject = "Programming"
+            };
+
+            var assignments = new List<StudentFaculty>
+            {
+                new StudentFaculty
+                {
+                    FacultyId = facultyId,
+                    StudentId = Guid.NewGuid(),
+                    Student = new Student
+                    {
+                        FirstName = "Jane",
+                        LastName = "Smith",
+                        Email = "jane.smith@example.com",
+                        RollNumber = "STU001",
+                        Grade = "12",
+                        Section = "A"
+                    },
+                    IsActive = true,
+                    AssignedDate = DateTime.UtcNow
+                }
+            };
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync(faculty);
+            _mockAssignmentRepository.Setup(x => x.GetByFacultyIdAsync(facultyId))
+                .ReturnsAsync(assignments);
+
+            // Act
+            var result = await _service.GetFacultyDashboardAsync(facultyId);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.Faculty.Id.Should().Be(facultyId);
+            result.Data.TotalAssignedStudents.Should().Be(1);
+            result.Data.ActiveAssignments.Should().Be(1);
+            result.Data.AssignedStudents.Should().HaveCount(1);
+        }
+
+        [Test]
+        public async Task GetFacultyDashboardAsync_WithNonExistentFaculty_ShouldReturnFailure()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+
+            _mockFacultyRepository.Setup(x => x.GetByIdAsync(facultyId))
+                .ReturnsAsync((Faculty?)null);
+
+            // Act
+            var result = await _service.GetFacultyDashboardAsync(facultyId);
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.Message.Should().Contain("Faculty not found");
+        }
+    }
+
+    [TestFixture]
+    public class GetAssignmentsAsyncTests : FacultyStudentAssignmentServiceTests
+    {
+        [Test]
+        public async Task GetAssignmentsAsync_WithValidFilter_ShouldReturnAssignments()
+        {
+            // Arrange
+            var filter = new FacultyStudentAssignmentFilterDto
+            {
+                Page = 1,
+                PageSize = 10
+            };
+
+            var assignments = new List<StudentFaculty>
+            {
+                new StudentFaculty
+                {
+                    FacultyId = Guid.NewGuid(),
+                    StudentId = Guid.NewGuid(),
+                    Faculty = new Faculty { FirstName = "John", LastName = "Doe" },
+                    Student = new Student { FirstName = "Jane", LastName = "Smith" }
+                }
+            };
+
+            _mockAssignmentRepository.Setup(x => x.GetAssignmentsAsync(filter))
+                .ReturnsAsync((assignments, 1));
+
+            // Act
+            var result = await _service.GetAssignmentsAsync(filter);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            var (resultAssignments, totalCount) = result.Data;
+            resultAssignments.Should().HaveCount(1);
+            totalCount.Should().Be(1);
+        }
+    }
+
+    [TestFixture]
+    public class IsStudentAssignedToFacultyAsyncTests : FacultyStudentAssignmentServiceTests
+    {
+        [Test]
+        public async Task IsStudentAssignedToFacultyAsync_WithExistingAssignment_ShouldReturnTrue()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+
+            _mockAssignmentRepository.Setup(x => x.ExistsAsync(facultyId, studentId))
+                .ReturnsAsync(true);
+
+            // Act
+            var result = await _service.IsStudentAssignedToFacultyAsync(facultyId, studentId);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().BeTrue();
+        }
+
+        [Test]
+        public async Task IsStudentAssignedToFacultyAsync_WithNonExistentAssignment_ShouldReturnFalse()
+        {
+            // Arrange
+            var facultyId = Guid.NewGuid();
+            var studentId = Guid.NewGuid();
+
+            _mockAssignmentRepository.Setup(x => x.ExistsAsync(facultyId, studentId))
+                .ReturnsAsync(false);
+
+            // Act
+            var result = await _service.IsStudentAssignedToFacultyAsync(facultyId, studentId);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.Data.Should().BeFalse();
+        }
+    }
+}

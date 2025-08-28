@@ -30,3 +30,4 @@ public enum FeeType
     /// </summary>
     Misc = 4
 }
+

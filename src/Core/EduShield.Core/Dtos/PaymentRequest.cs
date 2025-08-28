@@ -33,3 +33,4 @@ public class PaymentRequest
     [StringLength(200, ErrorMessage = "Payment notes cannot exceed 200 characters")]
     public string? Notes { get; set; }
 }
+

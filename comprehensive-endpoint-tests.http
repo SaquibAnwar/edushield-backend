@@ -1,0 +1,415 @@
+### EduShield API Comprehensive Endpoint Testing
+### Base URL: http://localhost:8080/api/v1
+
+### Variables
+@baseUrl = http://localhost:8080/api/v1
+@adminEmail = iamsaquibanwar@gmail.com
+@teacherEmail = saquibanwar01@gmail.com
+@parentEmail = kirakrypto9ite@gmail.com
+@studentEmail = saquibedu@gmail.com
+
+### ========================================
+### 1. AUTHENTICATION ENDPOINTS
+### ========================================
+
+### 1.1 Dev Authentication - Admin
+POST {{baseUrl}}/auth/dev
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}"
+}
+
+### 1.2 Dev Authentication - Teacher
+POST {{baseUrl}}/auth/dev
+Content-Type: application/json
+
+{
+  "email": "{{teacherEmail}}"
+}
+
+### 1.3 Dev Authentication - Parent
+POST {{baseUrl}}/auth/dev
+Content-Type: application/json
+
+{
+  "email": "{{parentEmail}}"
+}
+
+### 1.4 Dev Authentication - Student
+POST {{baseUrl}}/auth/dev
+Content-Type: application/json
+
+{
+  "email": "{{studentEmail}}"
+}
+
+### 1.5 Get User Profile (requires authentication)
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{adminToken}}
+
+### 1.6 Logout
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 2. USER MANAGEMENT ENDPOINTS
+### ========================================
+
+### 2.1 Get All Users (Admin only)
+GET {{baseUrl}}/users
+Authorization: Bearer {{adminToken}}
+
+### 2.2 Get User by ID
+GET {{baseUrl}}/users/3c77773c-d90b-40bd-b51e-808a0497d951
+Authorization: Bearer {{adminToken}}
+
+### 2.3 Create New User
+POST {{baseUrl}}/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "email": "newuser@test.com",
+  "firstName": "New",
+  "lastName": "User",
+  "role": 4,
+  "provider": 0
+}
+
+### 2.4 Update User
+PUT {{baseUrl}}/users/3c77773c-d90b-40bd-b51e-808a0497d951
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Updated",
+  "lastName": "Admin",
+  "role": 1
+}
+
+### 2.5 Delete User
+DELETE {{baseUrl}}/users/3c77773c-d90b-40bd-b51e-808a0497d951
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 3. STUDENT MANAGEMENT ENDPOINTS
+### ========================================
+
+### 3.1 Get All Students
+GET {{baseUrl}}/students
+Authorization: Bearer {{adminToken}}
+
+### 3.2 Get Student by ID
+GET {{baseUrl}}/students/{{studentId}}
+Authorization: Bearer {{adminToken}}
+
+### 3.3 Create New Student
+POST {{baseUrl}}/students
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "Student",
+  "email": "teststudent@example.com",
+  "phoneNumber": "1234567890",
+  "dateOfBirth": "2005-01-15T00:00:00Z",
+  "address": "123 Test Street",
+  "enrollmentDate": "2024-09-01T00:00:00Z",
+  "rollNumber": "TS2024001",
+  "gender": 1,
+  "status": 0
+}
+
+### 3.4 Update Student
+PUT {{baseUrl}}/students/{{studentId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Updated",
+  "lastName": "Student",
+  "phoneNumber": "9876543210"
+}
+
+### 3.5 Delete Student
+DELETE {{baseUrl}}/students/{{studentId}}
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 4. FACULTY MANAGEMENT ENDPOINTS
+### ========================================
+
+### 4.1 Get All Faculty
+GET {{baseUrl}}/faculty
+Authorization: Bearer {{adminToken}}
+
+### 4.2 Get Faculty by ID
+GET {{baseUrl}}/faculty/{{facultyId}}
+Authorization: Bearer {{adminToken}}
+
+### 4.3 Create New Faculty
+POST {{baseUrl}}/faculty
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Teacher",
+  "department": "Mathematics",
+  "subject": "Algebra",
+  "gender": 1
+}
+
+### 4.4 Update Faculty
+PUT {{baseUrl}}/faculty/{{facultyId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Teacher",
+  "department": "Science",
+  "subject": "Physics"
+}
+
+### 4.5 Delete Faculty
+DELETE {{baseUrl}}/faculty/{{facultyId}}
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 5. PARENT MANAGEMENT ENDPOINTS
+### ========================================
+
+### 5.1 Get All Parents
+GET {{baseUrl}}/parents
+Authorization: Bearer {{adminToken}}
+
+### 5.2 Get Parent by ID
+GET {{baseUrl}}/parents/{{parentId}}
+Authorization: Bearer {{adminToken}}
+
+### 5.3 Create New Parent
+POST {{baseUrl}}/parents
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "Parent",
+  "email": "testparent@example.com",
+  "phoneNumber": "1234567890",
+  "address": "123 Parent Street",
+  "city": "Test City",
+  "state": "Test State",
+  "postalCode": "12345",
+  "country": "Test Country",
+  "gender": 1,
+  "occupation": "Engineer",
+  "parentType": 0
+}
+
+### 5.4 Update Parent
+PUT {{baseUrl}}/parents/{{parentId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Updated",
+  "lastName": "Parent",
+  "occupation": "Doctor"
+}
+
+### 5.5 Delete Parent
+DELETE {{baseUrl}}/parents/{{parentId}}
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 6. STUDENT PERFORMANCE ENDPOINTS
+### ========================================
+
+### 6.1 Get Student Performance
+GET {{baseUrl}}/students/{{studentId}}/performance
+Authorization: Bearer {{adminToken}}
+
+### 6.2 Add Student Performance
+POST {{baseUrl}}/students/{{studentId}}/performance
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "subject": "Mathematics",
+  "examType": 1,
+  "examDate": "2024-08-15T00:00:00Z",
+  "maxScore": 100,
+  "obtainedScore": 85,
+  "grade": "A",
+  "remarks": "Excellent performance"
+}
+
+### 6.3 Update Student Performance
+PUT {{baseUrl}}/students/{{studentId}}/performance/{{performanceId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "obtainedScore": 90,
+  "grade": "A+",
+  "remarks": "Outstanding performance"
+}
+
+### 6.4 Delete Student Performance
+DELETE {{baseUrl}}/students/{{studentId}}/performance/{{performanceId}}
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 7. STUDENT FEE ENDPOINTS
+### ========================================
+
+### 7.1 Get Student Fees
+GET {{baseUrl}}/students/{{studentId}}/fees
+Authorization: Bearer {{adminToken}}
+
+### 7.2 Add Student Fee
+POST {{baseUrl}}/students/{{studentId}}/fees
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "feeType": 0,
+  "term": "Fall 2024",
+  "totalAmount": 5000.00,
+  "amountPaid": 2500.00,
+  "dueDate": "2024-12-31T00:00:00Z",
+  "notes": "Tuition fee for Fall semester"
+}
+
+### 7.3 Update Student Fee
+PUT {{baseUrl}}/students/{{studentId}}/fees/{{feeId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amountPaid": 5000.00,
+  "paymentStatus": 2,
+  "lastPaymentDate": "2024-08-28T00:00:00Z"
+}
+
+### 7.4 Process Fee Payment
+POST {{baseUrl}}/students/{{studentId}}/fees/{{feeId}}/payment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 2500.00,
+  "paymentMethod": "Credit Card",
+  "transactionId": "TXN123456789"
+}
+
+### 7.5 Delete Student Fee
+DELETE {{baseUrl}}/students/{{studentId}}/fees/{{feeId}}
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 8. STUDENT-FACULTY RELATIONSHIP ENDPOINTS
+### ========================================
+
+### 8.1 Get Student's Faculty Assignments
+GET {{baseUrl}}/students/{{studentId}}/faculty
+Authorization: Bearer {{adminToken}}
+
+### 8.2 Assign Faculty to Student
+POST {{baseUrl}}/students/{{studentId}}/faculty
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "facultyId": "{{facultyId}}",
+  "subject": "Mathematics",
+  "notes": "Primary math teacher"
+}
+
+### 8.3 Update Student-Faculty Assignment
+PUT {{baseUrl}}/students/{{studentId}}/faculty/{{assignmentId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "subject": "Advanced Mathematics",
+  "notes": "Advanced level instructor",
+  "isActive": true
+}
+
+### 8.4 Remove Faculty Assignment
+DELETE {{baseUrl}}/students/{{studentId}}/faculty/{{assignmentId}}
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 9. PARENT-STUDENT RELATIONSHIP ENDPOINTS
+### ========================================
+
+### 9.1 Get Parent's Students
+GET {{baseUrl}}/parents/{{parentId}}/students
+Authorization: Bearer {{adminToken}}
+
+### 9.2 Link Student to Parent
+POST {{baseUrl}}/parents/{{parentId}}/students
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "studentId": "{{studentId}}",
+  "relationship": "Father",
+  "isPrimaryContact": true
+}
+
+### 9.3 Update Parent-Student Relationship
+PUT {{baseUrl}}/parents/{{parentId}}/students/{{studentId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "relationship": "Guardian",
+  "isPrimaryContact": false
+}
+
+### 9.4 Remove Parent-Student Link
+DELETE {{baseUrl}}/parents/{{parentId}}/students/{{studentId}}
+Authorization: Bearer {{adminToken}}
+
+### ========================================
+### 10. HEALTH CHECK AND SYSTEM ENDPOINTS
+### ========================================
+
+### 10.1 Health Check
+GET {{baseUrl}}/health
+
+### 10.2 API Version
+GET {{baseUrl}}/version
+
+### ========================================
+### 11. ERROR HANDLING TESTS
+### ========================================
+
+### 11.1 Unauthorized Access (no token)
+GET {{baseUrl}}/users
+
+### 11.2 Invalid Token
+GET {{baseUrl}}/users
+Authorization: Bearer invalid_token_here
+
+### 11.3 Non-existent Resource
+GET {{baseUrl}}/users/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{adminToken}}
+
+### 11.4 Invalid Request Body
+POST {{baseUrl}}/students
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "invalidField": "invalid data"
+}
+
+### 11.5 Forbidden Access (wrong role)
+GET {{baseUrl}}/users
+Authorization: Bearer {{studentToken}}
