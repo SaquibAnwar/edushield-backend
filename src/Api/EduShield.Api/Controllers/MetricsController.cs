@@ -78,7 +78,7 @@ public class MetricsController : ControllerBase
             // Recent enrollments (last 30 days)
             var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
             var recentEnrollments = await _context.Students
-                .CountAsync(s => s.EnrollmentDate >= thirtyDaysAgo, cancellationToken);
+                .CountAsync(s => s.EnrollmentDate <= thirtyDaysAgo, cancellationToken);
 
             // Overdue payments count
             var overduePayments = await _context.StudentFees
