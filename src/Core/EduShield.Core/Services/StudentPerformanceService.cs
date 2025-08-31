@@ -59,7 +59,9 @@ public class StudentPerformanceService : IStudentPerformanceService
             StudentId = request.StudentId,
             Subject = request.Subject,
             ExamType = request.ExamType,
-            ExamDate = request.ExamDate,
+            ExamDate = request.ExamDate.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(request.ExamDate, DateTimeKind.Utc)
+                : request.ExamDate.ToUniversalTime(),
             MaxScore = request.MaxScore,
             ExamTitle = request.ExamTitle,
             Comments = request.Comments,
@@ -148,7 +150,12 @@ public class StudentPerformanceService : IStudentPerformanceService
         // Update other properties if provided
         if (request.Subject != null) existingPerformance.Subject = request.Subject;
         if (request.ExamType.HasValue) existingPerformance.ExamType = request.ExamType.Value;
-        if (request.ExamDate.HasValue) existingPerformance.ExamDate = request.ExamDate.Value;
+        if (request.ExamDate.HasValue) 
+        {
+            existingPerformance.ExamDate = request.ExamDate.Value.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(request.ExamDate.Value, DateTimeKind.Utc)
+                : request.ExamDate.Value.ToUniversalTime();
+        }
         if (request.MaxScore.HasValue) existingPerformance.MaxScore = request.MaxScore.Value;
         if (request.ExamTitle != null) existingPerformance.ExamTitle = request.ExamTitle;
         if (request.Comments != null) existingPerformance.Comments = request.Comments;
@@ -223,7 +230,7 @@ public class StudentPerformanceService : IStudentPerformanceService
         {
             filteredPerformances = filteredPerformances.Where(p => 
                 p.Subject.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
-                p.ExamTitle.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                (p.ExamTitle != null && p.ExamTitle.Contains(filter.Search, StringComparison.OrdinalIgnoreCase)) ||
                 (p.Student != null && (p.Student.FirstName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
                                      p.Student.LastName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase))));
         }

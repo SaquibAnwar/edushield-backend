@@ -61,7 +61,9 @@ public class StudentFeeService : IStudentFeeService
             StudentId = request.StudentId,
             FeeType = request.FeeType,
             Term = request.Term,
-            DueDate = request.DueDate,
+            DueDate = request.DueDate.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(request.DueDate, DateTimeKind.Utc)
+                : request.DueDate.ToUniversalTime(),
             Notes = request.Notes,
             // Encrypt amounts before storing
             EncryptedTotalAmount = _encryptionService.EncryptDecimal(request.TotalAmount),
@@ -177,7 +179,11 @@ public class StudentFeeService : IStudentFeeService
         }
         
         if (request.DueDate.HasValue)
-            existingFee.DueDate = request.DueDate.Value;
+        {
+            existingFee.DueDate = request.DueDate.Value.Kind == DateTimeKind.Unspecified 
+                ? DateTime.SpecifyKind(request.DueDate.Value, DateTimeKind.Utc)
+                : request.DueDate.Value.ToUniversalTime();
+        }
         
         if (request.Notes != null)
             existingFee.Notes = request.Notes;
