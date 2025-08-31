@@ -10,6 +10,8 @@ public interface IStudentService
     Task<StudentDto?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<StudentDto?> GetByRollNumberAsync(string rollNumber, CancellationToken cancellationToken = default);
     Task<IEnumerable<StudentDto>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<StudentDto>> GetAllAsync(StudentFilters filters, CancellationToken cancellationToken = default);
+    Task<PaginatedResponse<StudentDto>> GetPaginatedAsync(StudentFilters filters, CancellationToken cancellationToken = default);
     Task<IEnumerable<StudentDto>> GetByFacultyIdAsync(Guid facultyId, CancellationToken cancellationToken = default);
     Task<IEnumerable<StudentDto>> GetByParentIdAsync(Guid parentId, CancellationToken cancellationToken = default);
     Task<IEnumerable<StudentDto>> GetByStatusAsync(StudentStatus status, CancellationToken cancellationToken = default);
