@@ -2,6 +2,7 @@ using EduShield.Api.Auth.Requirements;
 using EduShield.Core.Dtos;
 using EduShield.Core.Enums;
 using EduShield.Core.Services;
+using EduShield.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,11 +22,13 @@ namespace EduShield.Api.Controllers;
 public class StudentPerformanceController : ControllerBase
 {
     private readonly IStudentPerformanceService _performanceService;
+    private readonly IStudentRepository _studentRepository;
     private readonly ILogger<StudentPerformanceController> _logger;
 
-    public StudentPerformanceController(IStudentPerformanceService performanceService, ILogger<StudentPerformanceController> logger)
+    public StudentPerformanceController(IStudentPerformanceService performanceService, IStudentRepository studentRepository, ILogger<StudentPerformanceController> logger)
     {
         _performanceService = performanceService;
+        _studentRepository = studentRepository;
         _logger = logger;
     }
 
@@ -122,7 +125,15 @@ public class StudentPerformanceController : ControllerBase
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
-                    filter.StudentId = userId.Value;
+                    
+                    // Get the student record by user ID
+                    var student = await _studentRepository.GetByUserIdAsync(userId.Value, cancellationToken);
+                    if (student == null)
+                    {
+                        return NotFound(new { error = "Student record not found for this user." });
+                    }
+                    
+                    filter.StudentId = student.Id;
                     break;
 
                 case UserRole.Parent:
@@ -410,9 +421,25 @@ public class StudentPerformanceController : ControllerBase
             var currentUserId = GetCurrentUserId();
 
             // Check access permissions
-            if (userRole == UserRole.Student && currentUserId != studentId)
+            if (userRole == UserRole.Student)
             {
-                return Forbid();
+                if (!currentUserId.HasValue)
+                {
+                    return Unauthorized(new { error = "User ID not found." });
+                }
+                
+                // Get the student record by user ID to verify they can only access their own data
+                var student = await _studentRepository.GetByUserIdAsync(currentUserId.Value, cancellationToken);
+                if (student == null)
+                {
+                    return NotFound(new { error = "Student record not found for this user." });
+                }
+                
+                // Students can only access their own statistics
+                if (student.Id != studentId)
+                {
+                    return Forbid();
+                }
             }
 
             if (userRole == UserRole.Faculty && currentUserId.HasValue)

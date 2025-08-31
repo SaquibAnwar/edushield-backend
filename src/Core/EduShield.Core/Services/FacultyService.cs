@@ -1,6 +1,7 @@
 using EduShield.Core.Dtos;
 using EduShield.Core.Entities;
 using EduShield.Core.Interfaces;
+using EduShield.Core.Enums;
 
 namespace EduShield.Core.Services;
 
@@ -20,7 +21,12 @@ public class FacultyService : IFacultyService
 
     public async Task<FacultyDto> CreateAsync(CreateFacultyRequest request, CancellationToken cancellationToken = default)
     {
-        // Validate email uniqueness
+        // Validate email uniqueness in both User and Faculty tables
+        if (await _userRepository.ExistsAsync(request.Email))
+        {
+            throw new InvalidOperationException($"User with email '{request.Email}' already exists.");
+        }
+        
         if (await _facultyRepository.EmailExistsAsync(request.Email, cancellationToken))
         {
             throw new InvalidOperationException($"Faculty with email '{request.Email}' already exists.");
@@ -45,15 +51,23 @@ public class FacultyService : IFacultyService
             throw new InvalidOperationException("Faculty member must be at least 18 years old.");
         }
 
-        // Validate user ID if provided
-        if (request.UserId.HasValue)
+        // Create User record for authentication
+        var user = new Entities.User
         {
-            var user = await _userRepository.GetByIdAsync(request.UserId.Value);
-            if (user == null)
-            {
-                throw new InvalidOperationException($"User with ID '{request.UserId.Value}' not found.");
-            }
-        }
+            Id = Guid.NewGuid(),
+            Email = request.Email,
+            Name = $"{request.FirstName} {request.LastName}".Trim(),
+            Role = UserRole.Faculty,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        // Create and save the user first
+        var createdUser = await _userRepository.CreateAsync(user);
+
+        // Generate employee ID
+        var employeeId = await GenerateEmployeeIdAsync(cancellationToken);
 
         var faculty = new Faculty
         {
@@ -68,12 +82,30 @@ public class FacultyService : IFacultyService
             Department = request.Department,
             Subject = request.Subject,
             HireDate = request.HireDate,
-            UserId = request.UserId,
+            UserId = createdUser.Id, // Link to the created user
+            EmployeeId = employeeId,
             IsActive = true
         };
 
         var createdFaculty = await _facultyRepository.CreateAsync(faculty, cancellationToken);
         return MapToDto(createdFaculty);
+    }
+
+    private async Task<string> GenerateEmployeeIdAsync(CancellationToken cancellationToken)
+    {
+        var existingFaculty = await _facultyRepository.GetAllAsync(cancellationToken);
+        var maxEmployeeId = existingFaculty
+            .Where(f => f.EmployeeId != null && f.EmployeeId.StartsWith("faculty_"))
+            .Select(f => 
+            {
+                if (int.TryParse(f.EmployeeId!.Replace("faculty_", ""), out var num))
+                    return num;
+                return 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max();
+        
+        return $"faculty_{maxEmployeeId + 1:D4}";
     }
 
     public async Task<FacultyDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

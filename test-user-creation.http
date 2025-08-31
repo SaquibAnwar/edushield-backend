@@ -1,0 +1,129 @@
+### Test User Creation Functionality
+
+# Test 1: Get Admin Token (DevAuth)
+POST http://localhost:8080/api/v1/auth/dev
+Content-Type: application/json
+
+{
+  "email": "iamsaquibanwar@gmail.com"
+}
+
+###
+
+# Test 2: Create New Student (Admin Only)
+POST http://localhost:8080/api/v1/students
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "firstName": "Alice",
+  "lastName": "Johnson",
+  "email": "alice.johnson@student.edu",
+  "phoneNumber": "+1234567890",
+  "dateOfBirth": "2005-06-15T00:00:00Z",
+  "address": "456 Student Ave, City, State",
+  "gender": 2,
+  "enrollmentDate": "2024-09-01T00:00:00Z",
+  "grade": "11",
+  "section": "B"
+}
+
+###
+
+# Test 3: Create New Faculty (Admin Only)
+POST http://localhost:8080/api/v1/faculty
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "firstName": "Dr. Robert",
+  "lastName": "Smith",
+  "email": "robert.smith@faculty.edu",
+  "phoneNumber": "+1234567891",
+  "dateOfBirth": "1985-03-20T00:00:00Z",
+  "address": "789 Faculty Blvd, City, State",
+  "gender": 1,
+  "department": "Mathematics",
+  "subject": "Calculus",
+  "hireDate": "2020-08-15T00:00:00Z"
+}
+
+###
+
+# Test 4: Create New Parent (Admin Only)
+POST http://localhost:8080/api/v1/parents
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{
+  "firstName": "Michael",
+  "lastName": "Brown",
+  "email": "michael.brown@parent.com",
+  "phoneNumber": "+1234567892",
+  "dateOfBirth": "1978-11-10T00:00:00Z",
+  "address": "321 Parent Lane, City, State",
+  "city": "City",
+  "state": "State",
+  "postalCode": "12345",
+  "country": "USA",
+  "gender": 1,
+  "occupation": "Teacher",
+  "employer": "Local School",
+  "workPhone": "+1234567893",
+  "emergencyContactName": "Sarah Brown",
+  "emergencyContactPhone": "+1234567894",
+  "emergencyContactRelationship": "Spouse",
+  "parentType": 0,
+  "isEmergencyContact": true,
+  "isAuthorizedToPickup": true
+}
+
+###
+
+# Test 5: Verify Student User Creation - Try to authenticate as new student
+POST http://localhost:8080/api/v1/auth/dev
+Content-Type: application/json
+
+{
+  "email": "alice.johnson@student.edu"
+}
+
+###
+
+# Test 6: Verify Faculty User Creation - Try to authenticate as new faculty
+POST http://localhost:8080/api/v1/auth/dev
+Content-Type: application/json
+
+{
+  "email": "robert.smith@faculty.edu"
+}
+
+###
+
+# Test 7: Verify Parent User Creation - Try to authenticate as new parent
+POST http://localhost:8080/api/v1/auth/dev
+Content-Type: application/json
+
+{
+  "email": "michael.brown@parent.com"
+}
+
+###
+
+# Test 8: Check if new student can access their own data
+GET http://localhost:8080/api/v1/students/email/alice.johnson@student.edu
+Authorization: Bearer {{new_student_token}}
+
+###
+
+# Test 9: Check if new faculty can access their own data
+GET http://localhost:8080/api/v1/faculty/email/robert.smith@faculty.edu
+Authorization: Bearer {{new_faculty_token}}
+
+###
+
+# Test 10: Check if new parent can access their own data
+GET http://localhost:8080/api/v1/parents/by-email/michael.brown@parent.com
+Authorization: Bearer {{new_parent_token}}
+
+###

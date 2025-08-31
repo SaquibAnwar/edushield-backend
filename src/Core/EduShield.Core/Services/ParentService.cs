@@ -14,12 +14,14 @@ public class ParentService : IParentService
     private readonly IParentRepository _parentRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly IMapper _mapper;
+    private readonly IUserRepository _userRepository; // Added IUserRepository
 
-    public ParentService(IParentRepository parentRepository, IStudentRepository studentRepository, IMapper mapper)
+    public ParentService(IParentRepository parentRepository, IStudentRepository studentRepository, IMapper mapper, IUserRepository userRepository)
     {
         _parentRepository = parentRepository;
         _studentRepository = studentRepository;
         _mapper = mapper;
+        _userRepository = userRepository;
     }
 
     public async Task<IEnumerable<ParentResponse>> GetAllAsync()
@@ -100,15 +102,36 @@ public class ParentService : IParentService
             throw new ArgumentException($"Validation failed: {string.Join(", ", errors)}");
         }
 
-        // Check if email already exists
+        // Check if email already exists in both User and Parent tables
+        if (await _userRepository.ExistsAsync(request.Email))
+        {
+            throw new InvalidOperationException($"User with email '{request.Email}' already exists.");
+        }
+        
         if (await _parentRepository.EmailExistsAsync(request.Email))
         {
             throw new InvalidOperationException($"Parent with email '{request.Email}' already exists.");
         }
 
+        // Create User record for authentication
+        var user = new Entities.User
+        {
+            Id = Guid.NewGuid(),
+            Email = request.Email,
+            Name = $"{request.FirstName} {request.LastName}".Trim(),
+            Role = UserRole.Parent,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        // Create and save the user first
+        var createdUser = await _userRepository.CreateAsync(user);
+
         // Create parent entity
         var parent = new Parent
         {
+            Id = Guid.NewGuid(),
             FirstName = request.FirstName,
             LastName = request.LastName,
             Email = request.Email,
@@ -130,7 +153,8 @@ public class ParentService : IParentService
             ParentType = request.ParentType,
             IsEmergencyContact = request.IsEmergencyContact,
             IsAuthorizedToPickup = request.IsAuthorizedToPickup,
-            IsActive = true
+            IsActive = true,
+            UserId = createdUser.Id // Link to the created user
         };
 
         var createdParent = await _parentRepository.AddAsync(parent);
