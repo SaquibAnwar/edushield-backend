@@ -104,4 +104,12 @@ public interface IStudentPerformanceService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Performance statistics for the student</returns>
     Task<object> GetStudentStatisticsAsync(Guid studentId, string? subject = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get paginated performance records with filtering
+    /// </summary>
+    /// <param name="filter">Filter and pagination parameters</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paginated performance records</returns>
+    Task<PaginatedResponse<StudentPerformanceDto>> GetPaginatedAsync(StudentPerformanceFilterRequest filter, CancellationToken cancellationToken = default);
 }

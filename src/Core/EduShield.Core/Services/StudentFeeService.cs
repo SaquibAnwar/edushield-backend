@@ -304,6 +304,110 @@ public class StudentFeeService : IStudentFeeService
         _logger.LogInformation("Updated late fees for {Count} overdue fee records", updatedCount);
         return updatedCount;
     }
+
+    public async Task<PaginatedResponse<StudentFeeDto>> GetPaginatedAsync(StudentFeeFilterRequest filter, CancellationToken cancellationToken = default)
+    {
+        // Validate and sanitize pagination parameters
+        filter.Validate();
+
+        // Get all fees first (we'll implement repository-level pagination later)
+        var allFees = await _feeRepository.GetAllAsync(cancellationToken);
+        
+        // Apply filters
+        var filteredFees = allFees.AsQueryable();
+
+        if (filter.StudentId.HasValue)
+        {
+            filteredFees = filteredFees.Where(f => f.StudentId == filter.StudentId.Value);
+        }
+
+        if (filter.FeeType.HasValue)
+        {
+            filteredFees = filteredFees.Where(f => f.FeeType == filter.FeeType.Value);
+        }
+
+        if (filter.PaymentStatus.HasValue)
+        {
+            filteredFees = filteredFees.Where(f => f.PaymentStatus == filter.PaymentStatus.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filter.Term))
+        {
+            filteredFees = filteredFees.Where(f => f.Term.Contains(filter.Term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (filter.IsOverdue.HasValue)
+        {
+            if (filter.IsOverdue.Value)
+            {
+                filteredFees = filteredFees.Where(f => f.DueDate < DateTime.Today && f.PaymentStatus != PaymentStatus.Paid);
+            }
+            else
+            {
+                filteredFees = filteredFees.Where(f => f.DueDate >= DateTime.Today || f.PaymentStatus == PaymentStatus.Paid);
+            }
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            filteredFees = filteredFees.Where(f => f.DueDate >= filter.FromDate.Value);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            filteredFees = filteredFees.Where(f => f.DueDate <= filter.ToDate.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filter.Search))
+        {
+            filteredFees = filteredFees.Where(f => 
+                f.Term.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                f.FeeType.ToString().Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                (f.Student != null && (f.Student.FirstName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                                     f.Student.LastName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                                     f.Student.RollNumber.Contains(filter.Search, StringComparison.OrdinalIgnoreCase))));
+        }
+
+        // Apply sorting
+        if (!string.IsNullOrEmpty(filter.SortBy))
+        {
+            var isDescending = filter.SortOrder?.ToLower() == "desc";
+            
+            filteredFees = filter.SortBy.ToLower() switch
+            {
+                "feetype" => isDescending ? filteredFees.OrderByDescending(f => f.FeeType) : filteredFees.OrderBy(f => f.FeeType),
+                "term" => isDescending ? filteredFees.OrderByDescending(f => f.Term) : filteredFees.OrderBy(f => f.Term),
+                "duedate" => isDescending ? filteredFees.OrderByDescending(f => f.DueDate) : filteredFees.OrderBy(f => f.DueDate),
+                "paymentstatus" => isDescending ? filteredFees.OrderByDescending(f => f.PaymentStatus) : filteredFees.OrderBy(f => f.PaymentStatus),
+                "student" => isDescending ? filteredFees.OrderByDescending(f => f.Student != null ? f.Student.FirstName : "") : filteredFees.OrderBy(f => f.Student != null ? f.Student.FirstName : ""),
+                _ => isDescending ? filteredFees.OrderByDescending(f => f.CreatedAt) : filteredFees.OrderBy(f => f.CreatedAt)
+            };
+        }
+        else
+        {
+            // Default sorting by due date descending
+            filteredFees = filteredFees.OrderByDescending(f => f.DueDate);
+        }
+
+        // Get total count
+        var totalCount = filteredFees.Count();
+
+        // Apply pagination
+        var pagedFees = filteredFees
+            .Skip(filter.Skip)
+            .Take(filter.Limit)
+            .ToList();
+
+        // Map to DTOs
+        var feeDtos = pagedFees.Select(MapToDto).ToList();
+
+        return PaginatedResponse<StudentFeeDto>.Create(
+            feeDtos,
+            totalCount,
+            filter.Page,
+            filter.Limit
+        );
+    }
     
     private Task RecalculateFeeAmountsAsync(StudentFee fee)
     {
