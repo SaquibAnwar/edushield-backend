@@ -153,7 +153,7 @@ public class ParentService : IParentService
             ParentType = request.ParentType,
             IsEmergencyContact = request.IsEmergencyContact,
             IsAuthorizedToPickup = request.IsAuthorizedToPickup,
-            IsActive = true,
+            IsActive = request.IsActive,
             UserId = createdUser.Id // Link to the created user
         };
 
@@ -205,6 +205,7 @@ public class ParentService : IParentService
         existingParent.ParentType = request.ParentType;
         existingParent.IsEmergencyContact = request.IsEmergencyContact;
         existingParent.IsAuthorizedToPickup = request.IsAuthorizedToPickup;
+        existingParent.IsActive = request.IsActive;
 
         var updatedParent = await _parentRepository.UpdateAsync(existingParent);
         return MapToResponse(updatedParent);
