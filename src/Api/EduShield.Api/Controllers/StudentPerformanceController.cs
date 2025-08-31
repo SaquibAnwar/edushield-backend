@@ -62,6 +62,7 @@ public class StudentPerformanceController : ControllerBase
     /// <param name="limit">Items per page</param>
     /// <param name="sortBy">Field to sort by</param>
     /// <param name="sortOrder">Sort order</param>
+    /// <param name="studentId">Optional student ID filter</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Paginated performance records based on user role and filters</returns>
     /// <response code="200">Performance records retrieved successfully.</response>
@@ -81,6 +82,7 @@ public class StudentPerformanceController : ControllerBase
         [FromQuery] string sortOrder = "asc",
         [FromQuery] int page = 1,
         [FromQuery] int limit = 10,
+        [FromQuery] Guid? studentId = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -99,7 +101,8 @@ public class StudentPerformanceController : ControllerBase
                 Page = page,
                 Limit = limit,
                 SortBy = sortBy,
-                SortOrder = sortOrder
+                SortOrder = sortOrder,
+                StudentId = studentId
             };
 
             // Apply role-based filtering
@@ -142,10 +145,75 @@ public class StudentPerformanceController : ControllerBase
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
-                    // TODO: Implement parent-specific filtering in service
-                    // For now, return empty result
-                    return Ok(PaginatedResponse<StudentPerformanceDto>.Create(
-                        new List<StudentPerformanceDto>(), 0, page, limit));
+                    
+                    // Get parent record to find their children
+                    var parentRepository = HttpContext.RequestServices.GetRequiredService<IParentRepository>();
+                    var parent = await parentRepository.GetByUserIdAsync(userId.Value);
+                    if (parent == null)
+                    {
+                        return NotFound(new { error = "Parent record not found for this user." });
+                    }
+                    
+                    // Get all children for this parent
+                    var studentService = HttpContext.RequestServices.GetRequiredService<IStudentService>();
+                    var children = await studentService.GetByParentIdAsync(parent.Id, cancellationToken);
+                    
+                    if (!children.Any())
+                    {
+                        return Ok(PaginatedResponse<StudentPerformanceDto>.Create(
+                            new List<StudentPerformanceDto>(), 0, page, limit));
+                    }
+                    
+                    // If studentId filter is provided, check if it belongs to this parent
+                    if (filter.StudentId.HasValue)
+                    {
+                        var requestedStudentId = filter.StudentId.Value;
+                        var requestedChild = children.FirstOrDefault(c => c.Id == requestedStudentId);
+                        if (requestedChild == null)
+                        {
+                            // Parent doesn't have access to this student
+                            return Forbid();
+                        }
+                        
+                        // Get performance records for the specific child only
+                        var childPerformances = await _performanceService.GetByStudentIdAsync(requestedStudentId, cancellationToken);
+                        var allPerformances = childPerformances.ToList();
+                        
+                        // Apply filters and return
+                        var childFilteredPerformances = allPerformances.AsQueryable();
+                        childFilteredPerformances = ApplyPerformanceFilters(childFilteredPerformances, filter);
+                        childFilteredPerformances = ApplyPerformanceSorting(childFilteredPerformances, filter);
+                        
+                        var childTotalCount = childFilteredPerformances.Count();
+                        var childPagedPerformances = childFilteredPerformances
+                            .Skip((filter.Page - 1) * filter.Limit)
+                            .Take(filter.Limit)
+                            .ToList();
+                        
+                        return Ok(PaginatedResponse<StudentPerformanceDto>.Create(childPagedPerformances, childTotalCount, filter.Page, filter.Limit));
+                    }
+                    
+                    // Get performance records for all children
+                    var allChildPerformances = new List<StudentPerformanceDto>();
+                    foreach (var child in children)
+                    {
+                        var childPerformances = await _performanceService.GetByStudentIdAsync(child.Id, cancellationToken);
+                        allChildPerformances.AddRange(childPerformances);
+                    }
+                    
+                    // Apply filters to the combined results
+                    var filteredPerformances = allChildPerformances.AsQueryable();
+                    filteredPerformances = ApplyPerformanceFilters(filteredPerformances, filter);
+                    filteredPerformances = ApplyPerformanceSorting(filteredPerformances, filter);
+                    
+                    // Apply pagination
+                    var totalCount = filteredPerformances.Count();
+                    var pagedPerformances = filteredPerformances
+                        .Skip((filter.Page - 1) * filter.Limit)
+                        .Take(filter.Limit)
+                        .ToList();
+                    
+                    return Ok(PaginatedResponse<StudentPerformanceDto>.Create(pagedPerformances, totalCount, filter.Page, filter.Limit));
 
                 default:
                     return Forbid();
@@ -550,5 +618,60 @@ public class StudentPerformanceController : ControllerBase
             UserRole.Parent => true,  // Simplified - should check parent relationship
             _ => false
         };
+    }
+
+    private IQueryable<StudentPerformanceDto> ApplyPerformanceFilters(IQueryable<StudentPerformanceDto> query, StudentPerformanceFilterRequest filter)
+    {
+        if (!string.IsNullOrEmpty(filter.Subject))
+        {
+            query = query.Where(p => p.Subject.Contains(filter.Subject, StringComparison.OrdinalIgnoreCase));
+        }
+        
+        if (filter.ExamType.HasValue)
+        {
+            query = query.Where(p => p.ExamType == filter.ExamType.Value);
+        }
+        
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(p => p.ExamDate >= filter.FromDate.Value);
+        }
+        
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(p => p.ExamDate <= filter.ToDate.Value);
+        }
+        
+        if (!string.IsNullOrEmpty(filter.Search))
+        {
+            query = query.Where(p => 
+                p.Subject.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                p.StudentFirstName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                p.StudentLastName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                (p.ExamTitle != null && p.ExamTitle.Contains(filter.Search, StringComparison.OrdinalIgnoreCase)));
+        }
+        
+        return query;
+    }
+
+    private IQueryable<StudentPerformanceDto> ApplyPerformanceSorting(IQueryable<StudentPerformanceDto> query, StudentPerformanceFilterRequest filter)
+    {
+        if (!string.IsNullOrEmpty(filter.SortBy))
+        {
+            var isDescending = filter.SortOrder?.ToLower() == "desc";
+            return filter.SortBy.ToLower() switch
+            {
+                "examdate" => isDescending ? query.OrderByDescending(p => p.ExamDate) : query.OrderBy(p => p.ExamDate),
+                "subject" => isDescending ? query.OrderByDescending(p => p.Subject) : query.OrderBy(p => p.Subject),
+                "score" => isDescending ? query.OrderByDescending(p => p.Score) : query.OrderBy(p => p.Score),
+                "percentage" => isDescending ? query.OrderByDescending(p => p.Percentage) : query.OrderBy(p => p.Percentage),
+                _ => isDescending ? query.OrderByDescending(p => p.ExamDate) : query.OrderBy(p => p.ExamDate)
+            };
+        }
+        else
+        {
+            // Default sort by exam date descending
+            return query.OrderByDescending(p => p.ExamDate);
+        }
     }
 }

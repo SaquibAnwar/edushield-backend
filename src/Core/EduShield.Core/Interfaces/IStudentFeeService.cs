@@ -32,6 +32,14 @@ public interface IStudentFeeService
     Task<IEnumerable<StudentFeeDto>> GetByFacultyIdAsync(Guid facultyId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Get fee records by student ID
+    /// </summary>
+    /// <param name="studentId">Student ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Collection of fee records for the student</returns>
+    Task<IEnumerable<StudentFeeDto>> GetByStudentIdAsync(Guid studentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Get fee records by user ID (for students)
     /// </summary>
     /// <param name="userId">User ID</param>
