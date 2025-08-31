@@ -47,7 +47,7 @@ public class ParentStudentAssignmentHandler : AuthorizationHandler<ParentStudent
             
             if (roleClaim == null)
             {
-                _logger.LogWarning("No role claim found for user {UserId}", context.User.Identity.Name);
+                _logger.LogWarning("No role claim found for user {UserId}", context.User.Identity?.Name);
                 context.Fail();
                 return Task.CompletedTask;
             }
@@ -59,13 +59,13 @@ public class ParentStudentAssignmentHandler : AuthorizationHandler<ParentStudent
             if (allowedRoles.Contains(userRole, StringComparer.OrdinalIgnoreCase))
             {
                 _logger.LogInformation("User {UserId} with role {UserRole} authorized for parent-student assignment operation", 
-                    context.User.Identity.Name, userRole);
+                    context.User.Identity?.Name, userRole);
                 context.Succeed(requirement);
             }
             else
             {
                 _logger.LogWarning("User {UserId} with role {UserRole} not authorized for parent-student assignment operation. Required roles: {RequiredRoles}", 
-                    context.User.Identity.Name, userRole, requirement.RequiredRole);
+                    context.User.Identity?.Name, userRole, requirement.RequiredRole);
                 context.Fail();
             }
 

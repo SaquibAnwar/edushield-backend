@@ -87,16 +87,48 @@ public class TestDataSeeder : ITestDataSeeder
         }
 
         // Seed students for users with Student role
-        await SeedStudentsAsync();
+        try
+        {
+            await SeedStudentsAsync();
+            Console.WriteLine("Students seeded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seeding students: {ex.Message}");
+        }
         
         // Seed faculty for users with Faculty role
-        await SeedFacultyAsync();
+        try
+        {
+            await SeedFacultyAsync();
+            Console.WriteLine("Faculty seeded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seeding faculty: {ex.Message}");
+        }
 
         // Seed parents for users with Parent role
-        await SeedParentsAsync();
+        try
+        {
+            await SeedParentsAsync();
+            Console.WriteLine("Parents seeded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seeding parents: {ex.Message}");
+        }
 
         // Seed sample fee data
-        await SeedSampleFeesAsync();
+        try
+        {
+            await SeedSampleFeesAsync();
+            Console.WriteLine("Sample fees seeded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seeding sample fees: {ex.Message}");
+        }
     }
 
     private async Task SeedStudentsAsync()
@@ -212,13 +244,27 @@ public class TestDataSeeder : ITestDataSeeder
                         };
                         
                         await _parentRepository.AddAsync(parent);
+                        Console.WriteLine($"Created parent: {user.Email}");
                     }
+                    else
+                    {
+                        Console.WriteLine($"Parent with email {user.Email} already exists (EmailExistsAsync), skipping...");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Parent with email {user.Email} already exists (GetByEmailAsync), skipping...");
                 }
             }
             catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
             {
                 // Ignore duplicate key violations - parent already exists
-                Console.WriteLine($"Parent with email {user.Email} already exists, skipping...");
+                Console.WriteLine($"Parent with email {user.Email} already exists (caught duplicate key), skipping...");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating parent {user.Email}: {ex.Message}");
+                // Continue with next parent instead of failing completely
             }
         }
     }
@@ -285,13 +331,31 @@ public class TestDataSeeder : ITestDataSeeder
         // Create fees in batches, checking for existing fees by StudentId, FeeType, and Term
         foreach (var fee in sampleFees)
         {
-            // Check if a fee with the same StudentId, FeeType, and Term already exists
-            var existingFees = await _feeRepository.GetByStudentIdAsync(fee.StudentId);
-            var feeExists = existingFees.Any(f => f.FeeType == fee.FeeType && f.Term == f.Term);
-            
-            if (!feeExists)
+            try
             {
-                await _feeRepository.CreateAsync(fee);
+                // Check if a fee with the same StudentId, FeeType, and Term already exists
+                var existingFees = await _feeRepository.GetByStudentIdAsync(fee.StudentId);
+                var feeExists = existingFees.Any(f => f.FeeType == fee.FeeType && f.Term == fee.Term);
+                
+                if (!feeExists)
+                {
+                    await _feeRepository.CreateAsync(fee);
+                    Console.WriteLine($"Created fee: {fee.FeeType} for student {fee.StudentId} in term {fee.Term}");
+                }
+                else
+                {
+                    Console.WriteLine($"Fee {fee.FeeType} for student {fee.StudentId} in term {fee.Term} already exists, skipping...");
+                }
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                // Ignore duplicate key violations
+                Console.WriteLine($"Fee {fee.FeeType} for student {fee.StudentId} in term {fee.Term} already exists (caught duplicate), skipping...");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating fee {fee.FeeType} for student {fee.StudentId}: {ex.Message}");
+                // Continue with next fee instead of failing completely
             }
         }
     }
