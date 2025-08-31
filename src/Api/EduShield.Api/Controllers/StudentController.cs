@@ -217,7 +217,25 @@ public class StudentController : ControllerBase
     /// Get all students (Admin/Dev have full access, others see filtered data)
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<StudentDto>>> GetAllStudents(
+    public async Task<ActionResult<PaginatedResponse<StudentDto>>> GetAllStudents(
+        [FromQuery] string? search,
+        [FromQuery] StudentStatus? status,
+        [FromQuery] Gender? gender,
+        [FromQuery] string? grade,
+        [FromQuery] string? section,
+        [FromQuery] Guid? parentId,
+        [FromQuery] Guid? facultyId,
+        [FromQuery] DateTime? enrollmentDateFrom,
+        [FromQuery] DateTime? enrollmentDateTo,
+        [FromQuery] DateTime? dateOfBirthFrom,
+        [FromQuery] DateTime? dateOfBirthTo,
+        [FromQuery] int? minAge,
+        [FromQuery] int? maxAge,
+        [FromQuery] bool? isEnrolled,
+        [FromQuery] int? page,
+        [FromQuery] int? limit,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortOrder,
         CancellationToken cancellationToken)
     {
         try
@@ -225,21 +243,46 @@ public class StudentController : ControllerBase
             var userRole = GetCurrentUserRole();
             var userId = GetCurrentUserId();
 
-            IEnumerable<StudentDto> students;
+            // Create filters object
+            var filters = new StudentFilters
+            {
+                Search = search,
+                Status = status,
+                Gender = gender,
+                Grade = grade,
+                Section = section,
+                ParentId = parentId,
+                FacultyId = facultyId,
+                EnrollmentDateFrom = enrollmentDateFrom,
+                EnrollmentDateTo = enrollmentDateTo,
+                DateOfBirthFrom = dateOfBirthFrom,
+                DateOfBirthTo = dateOfBirthTo,
+                MinAge = minAge,
+                MaxAge = maxAge,
+                IsEnrolled = isEnrolled,
+                Page = page,
+                Limit = limit,
+                SortBy = sortBy,
+                SortOrder = sortOrder
+            };
+
+            PaginatedResponse<StudentDto> students;
 
             switch (userRole)
             {
                 case UserRole.Admin:
                 case UserRole.DevAuth:
-                    // Admin/Dev can see all students
-                    students = await _studentService.GetAllAsync(cancellationToken);
+                    // Admin/Dev can see all students with filters
+                    students = await _studentService.GetPaginatedAsync(filters, cancellationToken);
                     break;
 
                 case UserRole.Faculty:
                     // Faculty can only see students assigned to them
                     if (userId.HasValue)
                     {
-                        students = await _studentService.GetByFacultyIdAsync(userId.Value, cancellationToken);
+                        // Override facultyId filter to current user for security
+                        filters.FacultyId = userId.Value;
+                        students = await _studentService.GetPaginatedAsync(filters, cancellationToken);
                     }
                     else
                     {
@@ -251,7 +294,9 @@ public class StudentController : ControllerBase
                     // Parent can only see their children
                     if (userId.HasValue)
                     {
-                        students = await _studentService.GetByParentIdAsync(userId.Value, cancellationToken);
+                        // Override parentId filter to current user for security
+                        filters.ParentId = userId.Value;
+                        students = await _studentService.GetPaginatedAsync(filters, cancellationToken);
                     }
                     else
                     {

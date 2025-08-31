@@ -175,37 +175,50 @@ public class TestDataSeeder : ITestDataSeeder
         
         foreach (var user in parentUsers)
         {
-            var existingParent = await _parentRepository.GetByEmailAsync(user.Email);
-            if (existingParent == null)
+            try
             {
-                var parent = new Parent
+                var existingParent = await _parentRepository.GetByEmailAsync(user.Email);
+                if (existingParent == null)
                 {
-                    Id = Guid.NewGuid(),
-                    FirstName = user.Name.Split(' ')[0],
-                    LastName = user.Name.Split(' ').Length > 1 ? string.Join(" ", user.Name.Split(' ').Skip(1)) : "",
-                    Email = user.Email,
-                    PhoneNumber = "+1234567890",
-                    DateOfBirth = new DateTime(1975, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    Address = "789 Parent Lane, City, State",
-                    City = "City",
-                    State = "State",
-                    PostalCode = "12345",
-                    Country = "USA",
-                    Gender = Gender.Male,
-                    Occupation = "Software Engineer",
-                    Employer = "Tech Company",
-                    WorkPhone = "+1234567891",
-                    EmergencyContactName = "Emergency Contact",
-                    EmergencyContactPhone = "+1234567892",
-                    EmergencyContactRelationship = "Spouse",
-                    ParentType = ParentType.Primary,
-                    IsEmergencyContact = true,
-                    IsAuthorizedToPickup = true,
-                    IsActive = true,
-                    UserId = user.Id
-                };
-                
-                await _parentRepository.AddAsync(parent);
+                    // Double-check using EmailExistsAsync for additional safety
+                    var emailExists = await _parentRepository.EmailExistsAsync(user.Email);
+                    if (!emailExists)
+                    {
+                        var parent = new Parent
+                        {
+                            Id = Guid.NewGuid(),
+                            FirstName = user.Name.Split(' ')[0],
+                            LastName = user.Name.Split(' ').Length > 1 ? string.Join(" ", user.Name.Split(' ').Skip(1)) : "",
+                            Email = user.Email,
+                            PhoneNumber = "+1234567890",
+                            DateOfBirth = new DateTime(1975, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                            Address = "789 Parent Lane, City, State",
+                            City = "City",
+                            State = "State",
+                            PostalCode = "12345",
+                            Country = "USA",
+                            Gender = Gender.Male,
+                            Occupation = "Software Engineer",
+                            Employer = "Tech Company",
+                            WorkPhone = "+1234567891",
+                            EmergencyContactName = "Emergency Contact",
+                            EmergencyContactPhone = "+1234567892",
+                            EmergencyContactRelationship = "Spouse",
+                            ParentType = ParentType.Primary,
+                            IsEmergencyContact = true,
+                            IsAuthorizedToPickup = true,
+                            IsActive = true,
+                            UserId = user.Id
+                        };
+                        
+                        await _parentRepository.AddAsync(parent);
+                    }
+                }
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                // Ignore duplicate key violations - parent already exists
+                Console.WriteLine($"Parent with email {user.Email} already exists, skipping...");
             }
         }
     }

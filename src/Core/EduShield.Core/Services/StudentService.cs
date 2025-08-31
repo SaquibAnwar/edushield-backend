@@ -91,6 +91,247 @@ public class StudentService : IStudentService
         return students.Select(MapToDto);
     }
 
+    public async Task<IEnumerable<StudentDto>> GetAllAsync(StudentFilters filters, CancellationToken cancellationToken = default)
+    {
+        var students = await _studentRepository.GetAllAsync(cancellationToken);
+        var studentDtos = students.Select(MapToDto);
+
+        // Apply filters
+        if (!string.IsNullOrWhiteSpace(filters.Search))
+        {
+            var searchTerm = filters.Search.ToLowerInvariant();
+            studentDtos = studentDtos.Where(s => 
+                s.FirstName.ToLowerInvariant().Contains(searchTerm) ||
+                s.LastName.ToLowerInvariant().Contains(searchTerm) ||
+                s.FullName.ToLowerInvariant().Contains(searchTerm) ||
+                s.Email.ToLowerInvariant().Contains(searchTerm) ||
+                (!string.IsNullOrEmpty(s.RollNumber) && s.RollNumber.ToLowerInvariant().Contains(searchTerm)) ||
+                (!string.IsNullOrEmpty(s.Grade) && s.Grade.ToLowerInvariant().Contains(searchTerm)) ||
+                (!string.IsNullOrEmpty(s.Section) && s.Section.ToLowerInvariant().Contains(searchTerm))
+            );
+        }
+
+        if (filters.Status.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.Status == filters.Status.Value);
+        }
+
+        if (filters.Gender.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.Gender == filters.Gender.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Grade))
+        {
+            studentDtos = studentDtos.Where(s => 
+                !string.IsNullOrEmpty(s.Grade) && 
+                s.Grade.Equals(filters.Grade, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Section))
+        {
+            studentDtos = studentDtos.Where(s => 
+                !string.IsNullOrEmpty(s.Section) && 
+                s.Section.Equals(filters.Section, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+
+        if (filters.ParentId.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.ParentId == filters.ParentId.Value);
+        }
+
+        if (filters.FacultyId.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => 
+                s.AssignedFaculties.Any(f => f.Id == filters.FacultyId.Value)
+            );
+        }
+
+        if (filters.EnrollmentDateFrom.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.EnrollmentDate >= filters.EnrollmentDateFrom.Value);
+        }
+
+        if (filters.EnrollmentDateTo.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.EnrollmentDate <= filters.EnrollmentDateTo.Value);
+        }
+
+        if (filters.DateOfBirthFrom.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.DateOfBirth >= filters.DateOfBirthFrom.Value);
+        }
+
+        if (filters.DateOfBirthTo.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.DateOfBirth <= filters.DateOfBirthTo.Value);
+        }
+
+        if (filters.IsEnrolled.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.IsEnrolled == filters.IsEnrolled.Value);
+        }
+
+        // Apply sorting
+        if (!string.IsNullOrWhiteSpace(filters.SortBy))
+        {
+            var isDescending = filters.SortOrder?.ToLowerInvariant() == "desc";
+            
+            studentDtos = filters.SortBy.ToLowerInvariant() switch
+            {
+                "firstname" => isDescending ? studentDtos.OrderByDescending(s => s.FirstName) : studentDtos.OrderBy(s => s.FirstName),
+                "lastname" => isDescending ? studentDtos.OrderByDescending(s => s.LastName) : studentDtos.OrderBy(s => s.LastName),
+                "fullname" => isDescending ? studentDtos.OrderByDescending(s => s.FullName) : studentDtos.OrderBy(s => s.FullName),
+                "email" => isDescending ? studentDtos.OrderByDescending(s => s.Email) : studentDtos.OrderBy(s => s.Email),
+                "rollnumber" => isDescending ? studentDtos.OrderByDescending(s => s.RollNumber) : studentDtos.OrderBy(s => s.RollNumber),
+                "grade" => isDescending ? studentDtos.OrderByDescending(s => s.Grade) : studentDtos.OrderBy(s => s.Grade),
+                "section" => isDescending ? studentDtos.OrderByDescending(s => s.Section) : studentDtos.OrderBy(s => s.Section),
+                "enrollmentdate" => isDescending ? studentDtos.OrderByDescending(s => s.EnrollmentDate) : studentDtos.OrderBy(s => s.EnrollmentDate),
+                "dateofbirth" => isDescending ? studentDtos.OrderByDescending(s => s.DateOfBirth) : studentDtos.OrderBy(s => s.DateOfBirth),
+                "status" => isDescending ? studentDtos.OrderByDescending(s => s.Status) : studentDtos.OrderBy(s => s.Status),
+                "createdat" => isDescending ? studentDtos.OrderByDescending(s => s.CreatedAt) : studentDtos.OrderBy(s => s.CreatedAt),
+                _ => studentDtos.OrderBy(s => s.FullName) // Default sort by full name
+            };
+        }
+        else
+        {
+            studentDtos = studentDtos.OrderBy(s => s.FullName);
+        }
+
+        // Apply pagination
+        if (filters.Page.HasValue && filters.Limit.HasValue)
+        {
+            var skip = (filters.Page.Value - 1) * filters.Limit.Value;
+            studentDtos = studentDtos.Skip(skip).Take(filters.Limit.Value);
+        }
+
+        return studentDtos;
+    }
+
+    public async Task<PaginatedResponse<StudentDto>> GetPaginatedAsync(StudentFilters filters, CancellationToken cancellationToken = default)
+    {
+        var students = await _studentRepository.GetAllAsync(cancellationToken);
+        var studentDtos = students.Select(MapToDto);
+
+        // Apply filters (same logic as GetAllAsync)
+        if (!string.IsNullOrWhiteSpace(filters.Search))
+        {
+            var searchTerm = filters.Search.ToLowerInvariant();
+            studentDtos = studentDtos.Where(s => 
+                s.FirstName.ToLowerInvariant().Contains(searchTerm) ||
+                s.LastName.ToLowerInvariant().Contains(searchTerm) ||
+                s.FullName.ToLowerInvariant().Contains(searchTerm) ||
+                s.Email.ToLowerInvariant().Contains(searchTerm) ||
+                (!string.IsNullOrEmpty(s.RollNumber) && s.RollNumber.ToLowerInvariant().Contains(searchTerm)) ||
+                (!string.IsNullOrEmpty(s.Grade) && s.Grade.ToLowerInvariant().Contains(searchTerm)) ||
+                (!string.IsNullOrEmpty(s.Section) && s.Section.ToLowerInvariant().Contains(searchTerm))
+            );
+        }
+
+        if (filters.Status.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.Status == filters.Status.Value);
+        }
+
+        if (filters.Gender.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.Gender == filters.Gender.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Grade))
+        {
+            studentDtos = studentDtos.Where(s => 
+                !string.IsNullOrEmpty(s.Grade) && 
+                s.Grade.Equals(filters.Grade, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(filters.Section))
+        {
+            studentDtos = studentDtos.Where(s => 
+                !string.IsNullOrEmpty(s.Section) && 
+                s.Section.Equals(filters.Section, StringComparison.OrdinalIgnoreCase)
+            );
+        }
+
+        if (filters.ParentId.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.ParentId == filters.ParentId.Value);
+        }
+
+        if (filters.FacultyId.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => 
+                s.AssignedFaculties.Any(f => f.Id == filters.FacultyId.Value)
+            );
+        }
+
+        if (filters.EnrollmentDateFrom.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.EnrollmentDate >= filters.EnrollmentDateFrom.Value);
+        }
+
+        if (filters.EnrollmentDateTo.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.EnrollmentDate <= filters.EnrollmentDateTo.Value);
+        }
+
+        if (filters.DateOfBirthFrom.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.DateOfBirth >= filters.DateOfBirthFrom.Value);
+        }
+
+        if (filters.DateOfBirthTo.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.DateOfBirth <= filters.DateOfBirthTo.Value);
+        }
+
+        if (filters.IsEnrolled.HasValue)
+        {
+            studentDtos = studentDtos.Where(s => s.IsEnrolled == filters.IsEnrolled.Value);
+        }
+
+        // Apply sorting
+        if (!string.IsNullOrWhiteSpace(filters.SortBy))
+        {
+            var isDescending = filters.SortOrder?.ToLowerInvariant() == "desc";
+            
+            studentDtos = filters.SortBy.ToLowerInvariant() switch
+            {
+                "firstname" => isDescending ? studentDtos.OrderByDescending(s => s.FirstName) : studentDtos.OrderBy(s => s.FirstName),
+                "lastname" => isDescending ? studentDtos.OrderByDescending(s => s.LastName) : studentDtos.OrderBy(s => s.LastName),
+                "fullname" => isDescending ? studentDtos.OrderByDescending(s => s.FullName) : studentDtos.OrderBy(s => s.FullName),
+                "email" => isDescending ? studentDtos.OrderByDescending(s => s.Email) : studentDtos.OrderBy(s => s.Email),
+                "rollnumber" => isDescending ? studentDtos.OrderByDescending(s => s.RollNumber) : studentDtos.OrderBy(s => s.RollNumber),
+                "grade" => isDescending ? studentDtos.OrderByDescending(s => s.Grade) : studentDtos.OrderBy(s => s.Grade),
+                "section" => isDescending ? studentDtos.OrderByDescending(s => s.Section) : studentDtos.OrderBy(s => s.Section),
+                "enrollmentdate" => isDescending ? studentDtos.OrderByDescending(s => s.EnrollmentDate) : studentDtos.OrderBy(s => s.EnrollmentDate),
+                "dateofbirth" => isDescending ? studentDtos.OrderByDescending(s => s.DateOfBirth) : studentDtos.OrderBy(s => s.DateOfBirth),
+                "status" => isDescending ? studentDtos.OrderByDescending(s => s.Status) : studentDtos.OrderBy(s => s.Status),
+                "createdat" => isDescending ? studentDtos.OrderByDescending(s => s.CreatedAt) : studentDtos.OrderBy(s => s.CreatedAt),
+                _ => studentDtos.OrderBy(s => s.FullName) // Default sort by full name
+            };
+        }
+        else
+        {
+            studentDtos = studentDtos.OrderBy(s => s.FullName);
+        }
+
+        // Get total count before pagination
+        var totalCount = studentDtos.Count();
+
+        // Apply pagination
+        var page = filters.Page ?? 1;
+        var pageSize = filters.Limit ?? 10;
+        
+        var skip = (page - 1) * pageSize;
+        var paginatedData = studentDtos.Skip(skip).Take(pageSize);
+
+        return new PaginatedResponse<StudentDto>(paginatedData, totalCount, page, pageSize);
+    }
+
     public async Task<IEnumerable<StudentDto>> GetByFacultyIdAsync(Guid facultyId, CancellationToken cancellationToken = default)
     {
         var students = await _studentRepository.GetByFacultyIdAsync(facultyId, cancellationToken);
