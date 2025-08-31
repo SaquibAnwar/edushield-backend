@@ -183,6 +183,91 @@ public class StudentPerformanceService : IStudentPerformanceService
         return await _performanceRepository.GetStudentStatisticsAsync(studentId, subject, cancellationToken);
     }
 
+    public async Task<PaginatedResponse<StudentPerformanceDto>> GetPaginatedAsync(StudentPerformanceFilterRequest filter, CancellationToken cancellationToken = default)
+    {
+        // Validate and sanitize pagination parameters
+        filter.Validate();
+
+        // Get all performances first (we'll implement repository-level pagination later)
+        var allPerformances = await _performanceRepository.GetAllAsync(cancellationToken);
+        
+        // Apply filters
+        var filteredPerformances = allPerformances.AsQueryable();
+
+        if (filter.StudentId.HasValue)
+        {
+            filteredPerformances = filteredPerformances.Where(p => p.StudentId == filter.StudentId.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filter.Subject))
+        {
+            filteredPerformances = filteredPerformances.Where(p => p.Subject.Contains(filter.Subject, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (filter.ExamType.HasValue)
+        {
+            filteredPerformances = filteredPerformances.Where(p => p.ExamType == filter.ExamType.Value);
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            filteredPerformances = filteredPerformances.Where(p => p.ExamDate >= filter.FromDate.Value);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            filteredPerformances = filteredPerformances.Where(p => p.ExamDate <= filter.ToDate.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filter.Search))
+        {
+            filteredPerformances = filteredPerformances.Where(p => 
+                p.Subject.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                p.ExamTitle.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                (p.Student != null && (p.Student.FirstName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                                     p.Student.LastName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase))));
+        }
+
+        // Apply sorting
+        if (!string.IsNullOrEmpty(filter.SortBy))
+        {
+            var isDescending = filter.SortOrder?.ToLower() == "desc";
+            
+            filteredPerformances = filter.SortBy.ToLower() switch
+            {
+                "subject" => isDescending ? filteredPerformances.OrderByDescending(p => p.Subject) : filteredPerformances.OrderBy(p => p.Subject),
+                "examdate" => isDescending ? filteredPerformances.OrderByDescending(p => p.ExamDate) : filteredPerformances.OrderBy(p => p.ExamDate),
+                "examtype" => isDescending ? filteredPerformances.OrderByDescending(p => p.ExamType) : filteredPerformances.OrderBy(p => p.ExamType),
+                "student" => isDescending ? filteredPerformances.OrderByDescending(p => p.Student != null ? p.Student.FirstName : "") : filteredPerformances.OrderBy(p => p.Student != null ? p.Student.FirstName : ""),
+                _ => isDescending ? filteredPerformances.OrderByDescending(p => p.CreatedAt) : filteredPerformances.OrderBy(p => p.CreatedAt)
+            };
+        }
+        else
+        {
+            // Default sorting by exam date descending
+            filteredPerformances = filteredPerformances.OrderByDescending(p => p.ExamDate);
+        }
+
+        // Get total count
+        var totalCount = filteredPerformances.Count();
+
+        // Apply pagination
+        var pagedPerformances = filteredPerformances
+            .Skip(filter.Skip)
+            .Take(filter.Limit)
+            .ToList();
+
+        // Map to DTOs
+        var performanceDtos = pagedPerformances.Select(MapToDto).ToList();
+
+        return PaginatedResponse<StudentPerformanceDto>.Create(
+            performanceDtos,
+            totalCount,
+            filter.Page,
+            filter.Limit
+        );
+    }
+
     private StudentPerformanceDto MapToDto(StudentPerformance performance)
     {
         // Decrypt the score for the DTO

@@ -126,4 +126,12 @@ public interface IStudentFeeService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Number of records updated</returns>
     Task<int> CalculateLateFeesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get paginated fee records with filtering
+    /// </summary>
+    /// <param name="filter">Filter and pagination parameters</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paginated fee records</returns>
+    Task<PaginatedResponse<StudentFeeDto>> GetPaginatedAsync(StudentFeeFilterRequest filter, CancellationToken cancellationToken = default);
 }

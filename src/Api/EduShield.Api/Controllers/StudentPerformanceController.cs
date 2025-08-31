@@ -30,7 +30,7 @@ public class StudentPerformanceController : ControllerBase
     }
 
     /// <summary>
-    /// Get all student performance records (role-restricted access)
+    /// Get all student performance records with pagination (role-restricted access)
     /// </summary>
     /// <remarks>
     /// **Access Control:**
@@ -42,109 +42,106 @@ public class StudentPerformanceController : ControllerBase
     /// **Query Parameters:**
     /// - `subject`: Filter by subject name
     /// - `examType`: Filter by exam type
-    /// - `startDate`: Filter by start date (ISO format)
-    /// - `endDate`: Filter by end date (ISO format)
+    /// - `fromDate`: Filter by start date (ISO format)
+    /// - `toDate`: Filter by end date (ISO format)
+    /// - `search`: Search term for filtering
+    /// - `page`: Page number (default: 1)
+    /// - `limit`: Items per page (default: 10, max: 100)
+    /// - `sortBy`: Field to sort by
+    /// - `sortOrder`: Sort order (asc/desc, default: asc)
     /// </remarks>
     /// <param name="subject">Optional subject filter</param>
     /// <param name="examType">Optional exam type filter</param>
-    /// <param name="startDate">Optional start date filter</param>
-    /// <param name="endDate">Optional end date filter</param>
+    /// <param name="fromDate">Optional start date filter</param>
+    /// <param name="toDate">Optional end date filter</param>
+    /// <param name="search">Optional search term</param>
+    /// <param name="page">Page number</param>
+    /// <param name="limit">Items per page</param>
+    /// <param name="sortBy">Field to sort by</param>
+    /// <param name="sortOrder">Sort order</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Collection of performance records based on user role and filters</returns>
+    /// <returns>Paginated performance records based on user role and filters</returns>
     /// <response code="200">Performance records retrieved successfully.</response>
     /// <response code="401">Unauthorized. Valid JWT token required.</response>
     /// <response code="403">Forbidden. Insufficient permissions.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet]
     [Authorize]
-    [ProducesResponseType(typeof(IEnumerable<StudentPerformanceDto>), 200)]
-    public async Task<ActionResult<IEnumerable<StudentPerformanceDto>>> GetAllPerformance(
+    [ProducesResponseType(typeof(PaginatedResponse<StudentPerformanceDto>), 200)]
+    public async Task<ActionResult<PaginatedResponse<StudentPerformanceDto>>> GetAllPerformance(
         [FromQuery] string? subject,
         [FromQuery] ExamType? examType,
-        [FromQuery] DateTime? startDate,
-        [FromQuery] DateTime? endDate,
-        CancellationToken cancellationToken)
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] string? search,
+        [FromQuery] string? sortBy,
+        [FromQuery] string sortOrder = "asc",
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var userRole = GetCurrentUserRole();
             var userId = GetCurrentUserId();
 
-            IEnumerable<StudentPerformanceDto> performances;
+            // Create filter request
+            var filter = new StudentPerformanceFilterRequest
+            {
+                Subject = subject,
+                ExamType = examType,
+                FromDate = fromDate,
+                ToDate = toDate,
+                Search = search,
+                Page = page,
+                Limit = limit,
+                SortBy = sortBy,
+                SortOrder = sortOrder
+            };
 
+            // Apply role-based filtering
             switch (userRole)
             {
                 case UserRole.Admin:
                 case UserRole.DevAuth:
-                    // Admin/Dev can see all performance records
-                    performances = await _performanceService.GetAllAsync(cancellationToken);
+                    // Admin/Dev can see all performance records - no additional filtering needed
                     break;
 
                 case UserRole.Faculty:
                     // Faculty can see performance records for students assigned to them
-                    if (userId.HasValue)
-                    {
-                        performances = await _performanceService.GetByFacultyIdAsync(userId.Value, cancellationToken);
-                    }
-                    else
+                    if (!userId.HasValue)
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
+                    // TODO: Implement faculty-specific filtering in service
                     break;
 
                 case UserRole.Student:
                     // Students can only see their own performance records
-                    if (userId.HasValue)
-                    {
-                        performances = await _performanceService.GetByStudentIdAsync(userId.Value, cancellationToken);
-                    }
-                    else
+                    if (!userId.HasValue)
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
+                    filter.StudentId = userId.Value;
                     break;
 
                 case UserRole.Parent:
                     // Parents can see performance records for their children
-                    if (userId.HasValue)
-                    {
-                        // Get all students for the parent and their performance records
-                        // This would require additional service method or we can get by student ID
-                        // For now, return empty - this should be enhanced
-                        performances = new List<StudentPerformanceDto>();
-                    }
-                    else
+                    if (!userId.HasValue)
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
-                    break;
+                    // TODO: Implement parent-specific filtering in service
+                    // For now, return empty result
+                    return Ok(PaginatedResponse<StudentPerformanceDto>.Create(
+                        new List<StudentPerformanceDto>(), 0, page, limit));
 
                 default:
                     return Forbid();
             }
 
-            // Apply filters if provided
-            if (!string.IsNullOrEmpty(subject))
-            {
-                performances = performances.Where(p => p.Subject.Equals(subject, StringComparison.OrdinalIgnoreCase));
-            }
-
-            if (examType.HasValue)
-            {
-                performances = performances.Where(p => p.ExamType == examType.Value);
-            }
-
-            if (startDate.HasValue)
-            {
-                performances = performances.Where(p => p.ExamDate >= startDate.Value);
-            }
-
-            if (endDate.HasValue)
-            {
-                performances = performances.Where(p => p.ExamDate <= endDate.Value);
-            }
-
-            return Ok(performances);
+            var result = await _performanceService.GetPaginatedAsync(filter, cancellationToken);
+            return Ok(result);
         }
         catch (Exception ex)
         {

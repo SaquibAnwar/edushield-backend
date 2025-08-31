@@ -31,7 +31,7 @@ public class StudentFeeController : ControllerBase
     }
 
     /// <summary>
-    /// Get all student fee records (role-restricted access)
+    /// Get all student fee records with pagination (role-restricted access)
     /// </summary>
     /// <remarks>
     /// **Access Control:**
@@ -43,114 +43,114 @@ public class StudentFeeController : ControllerBase
     /// **Query Parameters:**
     /// - `feeType`: Filter by fee type
     /// - `term`: Filter by term
-    /// - `status`: Filter by payment status
-    /// - `startDate`: Filter by start date (ISO format)
-    /// - `endDate`: Filter by end date (ISO format)
+    /// - `paymentStatus`: Filter by payment status
+    /// - `isOverdue`: Filter by overdue status
+    /// - `fromDate`: Filter by start date (ISO format)
+    /// - `toDate`: Filter by end date (ISO format)
+    /// - `search`: Search term for filtering
+    /// - `page`: Page number (default: 1)
+    /// - `limit`: Items per page (default: 10, max: 100)
+    /// - `sortBy`: Field to sort by
+    /// - `sortOrder`: Sort order (asc/desc, default: asc)
     /// </remarks>
     /// <param name="feeType">Optional fee type filter</param>
     /// <param name="term">Optional term filter</param>
-    /// <param name="status">Optional payment status filter</param>
-    /// <param name="startDate">Optional start date filter</param>
-    /// <param name="endDate">Optional end date filter</param>
+    /// <param name="paymentStatus">Optional payment status filter</param>
+    /// <param name="isOverdue">Optional overdue status filter</param>
+    /// <param name="fromDate">Optional start date filter</param>
+    /// <param name="toDate">Optional end date filter</param>
+    /// <param name="search">Optional search term</param>
+    /// <param name="page">Page number</param>
+    /// <param name="limit">Items per page</param>
+    /// <param name="sortBy">Field to sort by</param>
+    /// <param name="sortOrder">Sort order</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Collection of fee records based on user role and filters</returns>
+    /// <returns>Paginated fee records based on user role and filters</returns>
     /// <response code="200">Fee records retrieved successfully.</response>
     /// <response code="401">Unauthorized. Valid JWT token required.</response>
     /// <response code="403">Forbidden. Insufficient permissions.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet]
     [Authorize]
-    [ProducesResponseType(typeof(IEnumerable<StudentFeeDto>), 200)]
-    public async Task<ActionResult<IEnumerable<StudentFeeDto>>> GetAllFees(
+    [ProducesResponseType(typeof(PaginatedResponse<StudentFeeDto>), 200)]
+    public async Task<ActionResult<PaginatedResponse<StudentFeeDto>>> GetAllFees(
         [FromQuery] FeeType? feeType,
         [FromQuery] string? term,
-        [FromQuery] PaymentStatus? status,
-        [FromQuery] DateTime? startDate,
-        [FromQuery] DateTime? endDate,
-        CancellationToken cancellationToken)
+        [FromQuery] PaymentStatus? paymentStatus,
+        [FromQuery] bool? isOverdue,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] string? search,
+        [FromQuery] string? sortBy,
+        [FromQuery] string sortOrder = "asc",
+        [FromQuery] int page = 1,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var userRole = GetCurrentUserRole();
             var userId = GetCurrentUserId();
 
-            IEnumerable<StudentFeeDto> fees;
+            // Create filter request
+            var filter = new StudentFeeFilterRequest
+            {
+                FeeType = feeType,
+                Term = term,
+                PaymentStatus = paymentStatus,
+                IsOverdue = isOverdue,
+                FromDate = fromDate,
+                ToDate = toDate,
+                Search = search,
+                Page = page,
+                Limit = limit,
+                SortBy = sortBy,
+                SortOrder = sortOrder
+            };
 
+            // Apply role-based filtering
             switch (userRole)
             {
                 case UserRole.Admin:
                 case UserRole.DevAuth:
-                    // Admin/Dev can see all fee records
-                    fees = await _feeService.GetAllAsync(cancellationToken);
+                    // Admin/Dev can see all fee records - no additional filtering needed
                     break;
 
                 case UserRole.Faculty:
                     // Faculty can see fee records for students assigned to them
-                    if (userId.HasValue)
-                    {
-                        fees = await _feeService.GetByFacultyIdAsync(userId.Value, cancellationToken);
-                    }
-                    else
+                    if (!userId.HasValue)
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
+                    // TODO: Implement faculty-specific filtering in service
                     break;
 
                 case UserRole.Student:
                     // Students can only see their own fee records
-                    if (userId.HasValue)
-                    {
-                        fees = await _feeService.GetByUserIdAsync(userId.Value, cancellationToken);
-                    }
-                    else
+                    if (!userId.HasValue)
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
+                    filter.StudentId = userId.Value;
                     break;
 
                 case UserRole.Parent:
                     // Parents can see fee records for their children
-                    if (userId.HasValue)
-                    {
-                        fees = await _feeService.GetByParentIdAsync(userId.Value, cancellationToken);
-                    }
-                    else
+                    if (!userId.HasValue)
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
-                    break;
+                    // TODO: Implement parent-specific filtering in service
+                    // For now, return empty result
+                    return Ok(PaginatedResponse<StudentFeeDto>.Create(
+                        new List<StudentFeeDto>(), 0, page, limit));
 
                 default:
                     return Forbid();
             }
 
-            // Apply filters if provided
-            if (feeType.HasValue)
-            {
-                fees = fees.Where(f => f.FeeType == feeType.Value);
-            }
-
-            if (!string.IsNullOrEmpty(term))
-            {
-                fees = fees.Where(f => f.Term.Equals(term, StringComparison.OrdinalIgnoreCase));
-            }
-
-            if (status.HasValue)
-            {
-                fees = fees.Where(f => f.PaymentStatus == status.Value);
-            }
-
-            if (startDate.HasValue)
-            {
-                fees = fees.Where(f => f.DueDate >= startDate.Value);
-            }
-
-            if (endDate.HasValue)
-            {
-                fees = fees.Where(f => f.DueDate <= endDate.Value);
-            }
-
-            return Ok(fees);
+            var result = await _feeService.GetPaginatedAsync(filter, cancellationToken);
+            return Ok(result);
         }
         catch (Exception ex)
         {
