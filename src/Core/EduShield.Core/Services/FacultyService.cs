@@ -212,6 +212,28 @@ public class FacultyService : IFacultyService
 
     private static FacultyDto MapToDto(Faculty faculty)
     {
+        // Debug: Log the StudentFaculties collection
+        var assignedStudents = new List<AssignedStudentDto>();
+        
+        if (faculty.StudentFaculties != null && faculty.StudentFaculties.Any())
+        {
+            assignedStudents = faculty.StudentFaculties
+                .Where(sf => sf.Student != null)
+                .Select(sf => new AssignedStudentDto
+                {
+                    StudentId = sf.StudentId,
+                    StudentName = sf.Student!.FullName,
+                    StudentEmail = sf.Student.Email,
+                    StudentRollNumber = sf.Student.RollNumber ?? string.Empty,
+                    StudentGrade = sf.Student.Grade,
+                    StudentSection = sf.Student.Section,
+                    AssignedDate = sf.AssignedDate,
+                    IsActive = sf.IsActive,
+                    Notes = sf.Notes
+                })
+                .ToList();
+        }
+
         return new FacultyDto
         {
             Id = faculty.Id,
@@ -229,7 +251,8 @@ public class FacultyService : IFacultyService
             IsActive = faculty.IsActive,
             UserId = faculty.UserId,
             CreatedAt = faculty.CreatedAt,
-            UpdatedAt = faculty.UpdatedAt
+            UpdatedAt = faculty.UpdatedAt,
+            AssignedStudents = assignedStudents
         };
     }
 }

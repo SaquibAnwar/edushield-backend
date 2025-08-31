@@ -94,6 +94,7 @@ public class EduShieldDbContext : DbContext
                 
             entity.HasOne(sf => sf.Faculty)
                 .WithMany(f => f.StudentFaculties)
+                .HasForeignKey(sf => sf.FacultyId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
