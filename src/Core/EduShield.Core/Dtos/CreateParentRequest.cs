@@ -28,6 +28,7 @@ public class CreateParentRequest
     public ParentType ParentType { get; set; } = ParentType.Primary;
     public bool IsEmergencyContact { get; set; } = false;
     public bool IsAuthorizedToPickup { get; set; } = true;
+    public bool IsActive { get; set; } = true;
 }
 
 

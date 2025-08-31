@@ -22,11 +22,13 @@ namespace EduShield.Api.Controllers;
 public class StudentFeeController : ControllerBase
 {
     private readonly IStudentFeeService _feeService;
+    private readonly IStudentRepository _studentRepository;
     private readonly ILogger<StudentFeeController> _logger;
 
-    public StudentFeeController(IStudentFeeService feeService, ILogger<StudentFeeController> logger)
+    public StudentFeeController(IStudentFeeService feeService, IStudentRepository studentRepository, ILogger<StudentFeeController> logger)
     {
         _feeService = feeService;
+        _studentRepository = studentRepository;
         _logger = logger;
     }
 
@@ -131,8 +133,97 @@ public class StudentFeeController : ControllerBase
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
-                    filter.StudentId = userId.Value;
-                    break;
+                    
+                    // For students, use the GetByUserIdAsync method directly
+                    var studentFees = await _feeService.GetByUserIdAsync(userId.Value, cancellationToken);
+                    var studentFeesList = studentFees.ToList();
+                    
+                    // Apply filters to the student's fees
+                    var filteredStudentFees = studentFeesList.AsQueryable();
+                    
+                    if (feeType.HasValue)
+                    {
+                        filteredStudentFees = filteredStudentFees.Where(f => f.FeeType == feeType.Value);
+                    }
+                    
+                    if (!string.IsNullOrEmpty(term))
+                    {
+                        filteredStudentFees = filteredStudentFees.Where(f => f.Term.Contains(term, StringComparison.OrdinalIgnoreCase));
+                    }
+                    
+                    if (paymentStatus.HasValue)
+                    {
+                        filteredStudentFees = filteredStudentFees.Where(f => f.PaymentStatus == paymentStatus.Value);
+                    }
+                    
+                    if (isOverdue.HasValue)
+                    {
+                        if (isOverdue.Value)
+                        {
+                            filteredStudentFees = filteredStudentFees.Where(f => f.IsOverdue);
+                        }
+                        else
+                        {
+                            filteredStudentFees = filteredStudentFees.Where(f => !f.IsOverdue);
+                        }
+                    }
+                    
+                    if (fromDate.HasValue)
+                    {
+                        filteredStudentFees = filteredStudentFees.Where(f => f.DueDate >= fromDate.Value);
+                    }
+                    
+                    if (toDate.HasValue)
+                    {
+                        filteredStudentFees = filteredStudentFees.Where(f => f.DueDate <= toDate.Value);
+                    }
+                    
+                    if (!string.IsNullOrEmpty(search))
+                    {
+                        filteredStudentFees = filteredStudentFees.Where(f => 
+                            f.Term.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                            f.FeeTypeDescription.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                            f.PaymentStatusDescription.Contains(search, StringComparison.OrdinalIgnoreCase));
+                    }
+                    
+                    // Apply sorting
+                    if (!string.IsNullOrEmpty(sortBy))
+                    {
+                        var isDescending = sortOrder?.ToLower() == "desc";
+                        
+                        filteredStudentFees = sortBy.ToLower() switch
+                        {
+                            "feetype" => isDescending ? filteredStudentFees.OrderByDescending(f => f.FeeType) : filteredStudentFees.OrderBy(f => f.FeeType),
+                            "term" => isDescending ? filteredStudentFees.OrderByDescending(f => f.Term) : filteredStudentFees.OrderBy(f => f.Term),
+                            "duedate" => isDescending ? filteredStudentFees.OrderByDescending(f => f.DueDate) : filteredStudentFees.OrderBy(f => f.DueDate),
+                            "paymentstatus" => isDescending ? filteredStudentFees.OrderByDescending(f => f.PaymentStatus) : filteredStudentFees.OrderBy(f => f.PaymentStatus),
+                            "totalamount" => isDescending ? filteredStudentFees.OrderByDescending(f => f.TotalAmount) : filteredStudentFees.OrderBy(f => f.TotalAmount),
+                            "amountpaid" => isDescending ? filteredStudentFees.OrderByDescending(f => f.AmountPaid) : filteredStudentFees.OrderBy(f => f.AmountPaid),
+                            "amountdue" => isDescending ? filteredStudentFees.OrderByDescending(f => f.AmountDue) : filteredStudentFees.OrderBy(f => f.AmountDue),
+                            _ => isDescending ? filteredStudentFees.OrderByDescending(f => f.DueDate) : filteredStudentFees.OrderBy(f => f.DueDate)
+                        };
+                    }
+                    else
+                    {
+                        // Default sorting by due date descending
+                        filteredStudentFees = filteredStudentFees.OrderByDescending(f => f.DueDate);
+                    }
+                    
+                    // Apply pagination
+                    var totalCount = filteredStudentFees.Count();
+                    var pagedFees = filteredStudentFees
+                        .Skip((page - 1) * limit)
+                        .Take(limit)
+                        .ToList();
+                    
+                    var studentResult = PaginatedResponse<StudentFeeDto>.Create(
+                        pagedFees,
+                        totalCount,
+                        page,
+                        limit
+                    );
+                    
+                    return Ok(studentResult);
 
                 case UserRole.Parent:
                     // Parents can see fee records for their children
@@ -427,6 +518,55 @@ public class StudentFeeController : ControllerBase
         {
             _logger.LogError(ex, "Unexpected error occurred while processing payment for fee {FeeId}", id);
             return StatusCode(500, new { error = "An unexpected error occurred while processing the payment." });
+        }
+    }
+
+    /// <summary>
+    /// Get all fee records for the current student (Student role only)
+    /// </summary>
+    /// <remarks>
+    /// This endpoint allows students to retrieve all their fee records directly.
+    /// It automatically filters by the current user's student record.
+    /// 
+    /// **Access Control:**
+    /// - **Student**: Can view only their own fee records
+    /// - **Admin/DevAuth/Faculty/Parent**: Not allowed to use this endpoint
+    /// </remarks>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>All fee records for the current student</returns>
+    /// <response code="200">Fee records retrieved successfully.</response>
+    /// <response code="401">Unauthorized. Valid JWT token required.</response>
+    /// <response code="403">Forbidden. Student role required.</response>
+    /// <response code="404">Student record not found for current user.</response>
+    /// <response code="500">Internal server error during retrieval.</response>
+    [HttpGet("student/my-fees")]
+    [Authorize(Roles = "Student")]
+    [ProducesResponseType(typeof(IEnumerable<StudentFeeDto>), 200)]
+    public async Task<ActionResult<IEnumerable<StudentFeeDto>>> GetMyFees(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            if (!userId.HasValue)
+            {
+                return Unauthorized(new { error = "User ID not found." });
+            }
+
+            _logger.LogInformation("Getting fees for student with UserId: {UserId}", userId.Value);
+
+            // Use the service method that gets fees by user ID
+            var fees = await _feeService.GetByUserIdAsync(userId.Value, cancellationToken);
+            var feesList = fees.ToList();
+
+            _logger.LogInformation("Found {Count} fees for student with UserId: {UserId}", feesList.Count, userId.Value);
+
+            return Ok(feesList);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while retrieving fee records for current student");
+            return StatusCode(500, new { error = "An unexpected error occurred while retrieving fee records." });
         }
     }
 

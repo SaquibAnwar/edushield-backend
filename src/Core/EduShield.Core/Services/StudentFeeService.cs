@@ -435,19 +435,11 @@ public class StudentFeeService : IStudentFeeService
     
     private StudentFeeDto MapToDto(StudentFee fee)
     {
-        // Debug: Log the actual values being loaded
-        _logger.LogDebug("Mapping StudentFee to DTO - Id: {Id}, StudentId: {StudentId}", 
-            fee.Id, fee.StudentId);
-        
         // Decrypt encrypted fields and populate computed properties
         var totalAmount = _encryptionService.DecryptDecimal(fee.EncryptedTotalAmount);
         var amountPaid = _encryptionService.DecryptDecimal(fee.EncryptedAmountPaid);
         var amountDue = _encryptionService.DecryptDecimal(fee.EncryptedAmountDue);
         var fineAmount = _encryptionService.DecryptDecimal(fee.EncryptedFineAmount);
-        
-        // Debug: Log the decrypted values
-        _logger.LogDebug("Decrypted values - TotalAmount: {TotalAmount}, AmountPaid: {AmountPaid}, AmountDue: {AmountDue}, FineAmount: {FineAmount}", 
-            totalAmount, amountPaid, amountDue, fineAmount);
         
         return new StudentFeeDto
         {
