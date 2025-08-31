@@ -127,4 +127,9 @@ public class FacultyDto
     /// </summary>
     /// <example>true</example>
     public bool IsEmployed => IsActive && HireDate <= DateTime.Today;
+
+    /// <summary>
+    /// List of students assigned to this faculty member
+    /// </summary>
+    public List<AssignedStudentDto> AssignedStudents { get; set; } = new();
 }
