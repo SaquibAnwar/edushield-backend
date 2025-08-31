@@ -66,6 +66,7 @@ public class StudentFeeController : ControllerBase
     /// <param name="limit">Items per page</param>
     /// <param name="sortBy">Field to sort by</param>
     /// <param name="sortOrder">Sort order</param>
+    /// <param name="studentId">Optional student ID filter</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Paginated fee records based on user role and filters</returns>
     /// <response code="200">Fee records retrieved successfully.</response>
@@ -87,6 +88,7 @@ public class StudentFeeController : ControllerBase
         [FromQuery] string sortOrder = "asc",
         [FromQuery] int page = 1,
         [FromQuery] int limit = 10,
+        [FromQuery] Guid? studentId = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -107,7 +109,8 @@ public class StudentFeeController : ControllerBase
                 Page = page,
                 Limit = limit,
                 SortBy = sortBy,
-                SortOrder = sortOrder
+                SortOrder = sortOrder,
+                StudentId = studentId
             };
 
             // Apply role-based filtering
@@ -231,10 +234,75 @@ public class StudentFeeController : ControllerBase
                     {
                         return Unauthorized(new { error = "User ID not found." });
                     }
-                    // TODO: Implement parent-specific filtering in service
-                    // For now, return empty result
-                    return Ok(PaginatedResponse<StudentFeeDto>.Create(
-                        new List<StudentFeeDto>(), 0, page, limit));
+                    
+                    // Get parent record to find their children
+                    var parentRepository = HttpContext.RequestServices.GetRequiredService<IParentRepository>();
+                    var parent = await parentRepository.GetByUserIdAsync(userId.Value);
+                    if (parent == null)
+                    {
+                        return NotFound(new { error = "Parent record not found for this user." });
+                    }
+                    
+                    // Get all children for this parent
+                    var studentService = HttpContext.RequestServices.GetRequiredService<IStudentService>();
+                    var children = await studentService.GetByParentIdAsync(parent.Id, cancellationToken);
+                    
+                    if (!children.Any())
+                    {
+                        return Ok(PaginatedResponse<StudentFeeDto>.Create(
+                            new List<StudentFeeDto>(), 0, page, limit));
+                    }
+                    
+                    // If studentId filter is provided, check if it belongs to this parent
+                    if (filter.StudentId.HasValue)
+                    {
+                        var requestedStudentId = filter.StudentId.Value;
+                        var requestedChild = children.FirstOrDefault(c => c.Id == requestedStudentId);
+                        if (requestedChild == null)
+                        {
+                            // Parent doesn't have access to this student
+                            return Forbid();
+                        }
+                        
+                        // Get fee records for the specific child only
+                        var childFees = await _feeService.GetByStudentIdAsync(requestedStudentId, cancellationToken);
+                        var allFees = childFees.ToList();
+                        
+                        // Apply filters and return
+                        var childFilteredFees = allFees.AsQueryable();
+                        childFilteredFees = ApplyFeeFilters(childFilteredFees, filter);
+                        childFilteredFees = ApplyFeeSorting(childFilteredFees, filter);
+                        
+                        var childTotalCount = childFilteredFees.Count();
+                        var childPagedFees = childFilteredFees
+                            .Skip((filter.Page - 1) * filter.Limit)
+                            .Take(filter.Limit)
+                            .ToList();
+                        
+                        return Ok(PaginatedResponse<StudentFeeDto>.Create(childPagedFees, childTotalCount, filter.Page, filter.Limit));
+                    }
+                    
+                    // Get fee records for all children
+                    var allChildFees = new List<StudentFeeDto>();
+                    foreach (var child in children)
+                    {
+                        var childFees = await _feeService.GetByStudentIdAsync(child.Id, cancellationToken);
+                        allChildFees.AddRange(childFees);
+                    }
+                    
+                    // Apply filters to the combined results
+                    var filteredFees = allChildFees.AsQueryable();
+                    filteredFees = ApplyFeeFilters(filteredFees, filter);
+                    filteredFees = ApplyFeeSorting(filteredFees, filter);
+                    
+                    // Apply pagination
+                    var parentTotalCount = filteredFees.Count();
+                    var parentPagedFees = filteredFees
+                        .Skip((filter.Page - 1) * filter.Limit)
+                        .Take(filter.Limit)
+                        .ToList();
+                    
+                    return Ok(PaginatedResponse<StudentFeeDto>.Create(parentPagedFees, parentTotalCount, filter.Page, filter.Limit));
 
                 default:
                     return Forbid();
@@ -753,5 +821,72 @@ public class StudentFeeController : ControllerBase
             UserRole.Parent => true,  // Simplified - should check parent relationship
             _ => false
         };
+    }
+
+    private IQueryable<StudentFeeDto> ApplyFeeFilters(IQueryable<StudentFeeDto> query, StudentFeeFilterRequest filter)
+    {
+        if (filter.FeeType.HasValue)
+        {
+            query = query.Where(f => f.FeeType == filter.FeeType.Value);
+        }
+        
+        if (filter.PaymentStatus.HasValue)
+        {
+            query = query.Where(f => f.PaymentStatus == filter.PaymentStatus.Value);
+        }
+        
+        if (!string.IsNullOrEmpty(filter.Term))
+        {
+            query = query.Where(f => f.Term.Contains(filter.Term, StringComparison.OrdinalIgnoreCase));
+        }
+        
+        if (filter.IsOverdue.HasValue)
+        {
+            query = query.Where(f => f.IsOverdue == filter.IsOverdue.Value);
+        }
+        
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(f => f.DueDate >= filter.FromDate.Value);
+        }
+        
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(f => f.DueDate <= filter.ToDate.Value);
+        }
+        
+        if (!string.IsNullOrEmpty(filter.Search))
+        {
+            query = query.Where(f => 
+                f.StudentFirstName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                f.StudentLastName.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                f.StudentRollNumber.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                f.Term.Contains(filter.Search, StringComparison.OrdinalIgnoreCase) ||
+                (f.Notes != null && f.Notes.Contains(filter.Search, StringComparison.OrdinalIgnoreCase)));
+        }
+        
+        return query;
+    }
+
+    private IQueryable<StudentFeeDto> ApplyFeeSorting(IQueryable<StudentFeeDto> query, StudentFeeFilterRequest filter)
+    {
+        if (!string.IsNullOrEmpty(filter.SortBy))
+        {
+            var isDescending = filter.SortOrder?.ToLower() == "desc";
+            return filter.SortBy.ToLower() switch
+            {
+                "duedate" => isDescending ? query.OrderByDescending(f => f.DueDate) : query.OrderBy(f => f.DueDate),
+                "totalamount" => isDescending ? query.OrderByDescending(f => f.TotalAmount) : query.OrderBy(f => f.TotalAmount),
+                "amountdue" => isDescending ? query.OrderByDescending(f => f.AmountDue) : query.OrderBy(f => f.AmountDue),
+                "paymentstatus" => isDescending ? query.OrderByDescending(f => f.PaymentStatus) : query.OrderBy(f => f.PaymentStatus),
+                "term" => isDescending ? query.OrderByDescending(f => f.Term) : query.OrderBy(f => f.Term),
+                _ => isDescending ? query.OrderByDescending(f => f.DueDate) : query.OrderBy(f => f.DueDate)
+            };
+        }
+        else
+        {
+            // Default sort by due date ascending
+            return query.OrderBy(f => f.DueDate);
+        }
     }
 }
