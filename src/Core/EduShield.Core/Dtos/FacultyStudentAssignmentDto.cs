@@ -269,3 +269,4 @@ public class FacultyStudentAssignmentFilterDto
     public int PageSize { get; set; } = 20;
 }
 
+

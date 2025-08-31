@@ -13,3 +13,4 @@ CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
 GRANT ALL PRIVILEGES ON DATABASE edushield_backend TO postgres;
 GRANT ALL PRIVILEGES ON SCHEMA public TO postgres;
 
+

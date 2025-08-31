@@ -19,7 +19,12 @@ public class StudentService : IStudentService
 
     public async Task<StudentDto> CreateAsync(CreateStudentRequest request, CancellationToken cancellationToken = default)
     {
-        // Validate email uniqueness
+        // Validate email uniqueness in both User and Student tables
+        if (await _userRepository.ExistsAsync(request.Email))
+        {
+            throw new InvalidOperationException($"User with email '{request.Email}' already exists.");
+        }
+        
         if (await _studentRepository.EmailExistsAsync(request.Email, cancellationToken))
         {
             throw new InvalidOperationException($"Student with email '{request.Email}' already exists.");
@@ -37,6 +42,24 @@ public class StudentService : IStudentService
             throw new InvalidOperationException("Date of birth cannot be in the future.");
         }
 
+        // Create User record for authentication
+        var user = new Entities.User
+        {
+            Id = Guid.NewGuid(),
+            Email = request.Email,
+            Name = $"{request.FirstName} {request.LastName}".Trim(),
+            Role = UserRole.Student,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        // Create and save the user first
+        var createdUser = await _userRepository.CreateAsync(user);
+
+        // Generate roll number
+        var rollNumber = await GenerateRollNumberAsync(cancellationToken);
+
         var student = new Student
         {
             Id = Guid.NewGuid(),
@@ -51,7 +74,9 @@ public class StudentService : IStudentService
             Grade = request.Grade,
             Section = request.Section,
             ParentId = request.ParentId,
-            Status = StudentStatus.Active
+            Status = StudentStatus.Active,
+            RollNumber = rollNumber,
+            UserId = createdUser.Id // Link to the created user
         };
 
         // Assign faculties if provided
@@ -65,6 +90,23 @@ public class StudentService : IStudentService
 
         var createdStudent = await _studentRepository.CreateAsync(student, cancellationToken);
         return MapToDto(createdStudent);
+    }
+
+    private async Task<string> GenerateRollNumberAsync(CancellationToken cancellationToken)
+    {
+        var existingStudents = await _studentRepository.GetAllAsync(cancellationToken);
+        var maxRollNumber = existingStudents
+            .Where(s => s.RollNumber.StartsWith("student_"))
+            .Select(s => 
+            {
+                if (int.TryParse(s.RollNumber.Replace("student_", ""), out var num))
+                    return num;
+                return 0;
+            })
+            .DefaultIfEmpty(0)
+            .Max();
+        
+        return $"student_{maxRollNumber + 1:D4}";
     }
 
     public async Task<StudentDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

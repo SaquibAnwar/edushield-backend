@@ -90,3 +90,4 @@ public interface IFacultyStudentAssignmentRepository
     Task<int> GetStudentActiveAssignmentCountAsync(Guid studentId);
 }
 
+

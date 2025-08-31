@@ -86,10 +86,4 @@ public class CreateFacultyRequest
     /// <example>2020-08-15</example>
     [Required(ErrorMessage = "Hire date is required")]
     public DateTime HireDate { get; set; }
-    
-    /// <summary>
-    /// Associated user account ID for authentication (optional)
-    /// </summary>
-    /// <example>443abd4f-9e56-4adc-9eb7-7a0e2522dd2b</example>
-    public Guid? UserId { get; set; }
 }
