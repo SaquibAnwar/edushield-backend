@@ -180,6 +180,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ITestDataSeeder, TestDataSeeder>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IFacultyService, FacultyService>();
 builder.Services.AddScoped<IParentService, ParentService>();
