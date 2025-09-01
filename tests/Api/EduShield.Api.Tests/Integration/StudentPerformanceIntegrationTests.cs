@@ -43,13 +43,14 @@ public class StudentPerformanceIntegrationTests : IntegrationTestFixture
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         
         var content = await response.Content.ReadAsStringAsync();
-        var performances = JsonSerializer.Deserialize<List<StudentPerformanceDto>>(content, new JsonSerializerOptions
+        var paginatedResponse = JsonSerializer.Deserialize<Core.Dtos.PaginatedResponse<StudentPerformanceDto>>(content, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         });
         
-        performances.Should().NotBeNull();
-        performances!.Count.Should().BeGreaterThan(0);
+        paginatedResponse.Should().NotBeNull();
+        paginatedResponse!.Data.Should().NotBeNull();
+        paginatedResponse.Data.Count().Should().BeGreaterThan(0);
     }
 
     [Test]

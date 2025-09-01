@@ -241,6 +241,12 @@ public class ParentService : IParentService
         // Add child to parent
         parent.AddChild(student);
         await _parentRepository.UpdateAsync(parent);
+        
+        // Update the student entity directly to persist the ParentId field
+        // We need to ensure the student entity is properly tracked by Entity Framework
+        student.ParentId = parentId;
+        await _studentRepository.UpdateAsync(student);
+        
         return true;
     }
 
@@ -262,6 +268,14 @@ public class ParentService : IParentService
         // Remove child from parent
         parent.RemoveChild(childId);
         await _parentRepository.UpdateAsync(parent);
+        
+        // Update the student entity to persist the ParentId field change
+        var student = await _studentRepository.GetByIdAsync(childId);
+        if (student != null)
+        {
+            student.ParentId = null;
+            await _studentRepository.UpdateAsync(student);
+        }
         return true;
     }
 

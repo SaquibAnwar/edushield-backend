@@ -158,6 +158,7 @@ public class ParentIntegrationTests : IntegrationTestFixture
     #region Parent-Child Relationship Tests
 
     [Test]
+    // [Ignore("Known issue: ParentService.AddChildAsync has Entity Framework change tracking issues. Use ParentStudentAssignmentService instead.")]
     public async Task AddChildToParent_ValidRequest_EstablishesRelationship()
     {
         // Arrange
@@ -180,6 +181,8 @@ public class ParentIntegrationTests : IntegrationTestFixture
         Assert.That(result, Is.True);
 
         // Verify relationship in database
+        // Refresh the DbContext to see changes made by the service
+        DbContext.ChangeTracker.Clear();
         var updatedStudent = await DbContext.Students.FindAsync(student.Id);
         Assert.That(updatedStudent?.ParentId, Is.EqualTo(parent.Id));
 
@@ -189,6 +192,7 @@ public class ParentIntegrationTests : IntegrationTestFixture
     }
 
     [Test]
+    // [Ignore("Known issue: ParentService.AddChildAsync has Entity Framework change tracking issues. Use ParentStudentAssignmentService instead.")]
     public async Task AddChildToParent_StudentAlreadyHasParent_ThrowsException()
     {
         // Arrange
@@ -206,6 +210,7 @@ public class ParentIntegrationTests : IntegrationTestFixture
     }
 
     [Test]
+    // [Ignore("Known issue: ParentService.RemoveChildAsync has Entity Framework change tracking issues. Use ParentStudentAssignmentService instead.")]
     public async Task RemoveChildFromParent_ValidRequest_RemovesRelationship()
     {
         // Arrange
@@ -220,6 +225,8 @@ public class ParentIntegrationTests : IntegrationTestFixture
         Assert.That(result, Is.True);
 
         // Verify relationship removed in database
+        // Refresh the DbContext to see changes made by the service
+        DbContext.ChangeTracker.Clear();
         var updatedStudent = await DbContext.Students.FindAsync(student.Id);
         Assert.That(updatedStudent?.ParentId, Is.Null);
 
@@ -325,6 +332,7 @@ public class ParentIntegrationTests : IntegrationTestFixture
     #region Parent Portal Tests
 
     [Test]
+    // [Ignore("Known issue: ParentService.AddChildAsync has Entity Framework change tracking issues. Use ParentStudentAssignmentService instead.")]
     public async Task GetParentWithChildren_ValidParent_ReturnsChildrenInformation()
     {
         // Arrange
