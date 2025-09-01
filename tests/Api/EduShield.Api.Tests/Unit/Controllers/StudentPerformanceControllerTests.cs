@@ -22,6 +22,7 @@ namespace EduShield.Api.Tests.Unit;
 public class StudentPerformanceControllerTests : BaseTestFixture
 {
     private Mock<IStudentPerformanceService> _mockPerformanceService = null!;
+    private Mock<Core.Interfaces.IStudentRepository> _mockStudentRepository = null!;
     private StudentPerformanceController _controller = null!;
 
     [SetUp]
@@ -30,9 +31,13 @@ public class StudentPerformanceControllerTests : BaseTestFixture
         base.Setup();
         
         _mockPerformanceService = MockRepository.Create<IStudentPerformanceService>();
+        var mockStudentRepository = MockRepository.Create<Core.Interfaces.IStudentRepository>();
         var logger = CreateMockLogger<StudentPerformanceController>();
         
-        _controller = new StudentPerformanceController(_mockPerformanceService.Object, logger.Object);
+        _controller = new StudentPerformanceController(_mockPerformanceService.Object, mockStudentRepository.Object, logger.Object);
+        
+        // Store the mock student repository for use in tests
+        _mockStudentRepository = mockStudentRepository;
     }
 
     [Test]
@@ -73,21 +78,22 @@ public class StudentPerformanceControllerTests : BaseTestFixture
             CreateTestPerformanceDto()
         };
 
+        var paginatedResponse = new Core.Dtos.PaginatedResponse<StudentPerformanceDto>(expectedPerformances, expectedPerformances.Count, 1, 10);
         _mockPerformanceService
-            .Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedPerformances);
+            .Setup(x => x.GetPaginatedAsync(It.IsAny<Core.Dtos.StudentPerformanceFilterRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginatedResponse);
 
         // Act
-        var result = await _controller.GetAllPerformance(subject: null, examType: null, startDate: null, endDate: null, cancellationToken: CancellationToken.None);
+        var result = await _controller.GetAllPerformance(subject: null, examType: null, fromDate: null, toDate: null, search: null, sortBy: null, sortOrder: "asc", page: 1, limit: 10, studentId: null, cancellationToken: CancellationToken.None);
 
         // Assert
-        result.Should().BeOfType<ActionResult<IEnumerable<StudentPerformanceDto>>>();
-        var actionResult = result as ActionResult<IEnumerable<StudentPerformanceDto>>;
+        result.Should().BeOfType<ActionResult<Core.Dtos.PaginatedResponse<StudentPerformanceDto>>>();
+        var actionResult = result as ActionResult<Core.Dtos.PaginatedResponse<StudentPerformanceDto>>;
         actionResult.Should().NotBeNull();
         actionResult!.Result.Should().BeOfType<OkObjectResult>();
         var okResult = actionResult.Result as OkObjectResult;
-        var performances = okResult!.Value.Should().BeAssignableTo<IEnumerable<StudentPerformanceDto>>().Subject;
-        performances.Should().HaveCount(expectedPerformances.Count);
+        var response = okResult!.Value.Should().BeAssignableTo<Core.Dtos.PaginatedResponse<StudentPerformanceDto>>().Subject;
+        response.Data.Should().HaveCount(expectedPerformances.Count);
     }
 
     [Test]
@@ -102,22 +108,36 @@ public class StudentPerformanceControllerTests : BaseTestFixture
             CreateTestPerformanceDto(studentId)
         };
 
+        // Mock the student repository to return a student for the given user ID
+        var testStudent = new Core.Entities.Student
+        {
+            Id = studentId,
+            UserId = studentId,
+            FirstName = "Test",
+            LastName = "Student",
+            RollNumber = "TEST001"
+        };
+        _mockStudentRepository
+            .Setup(x => x.GetByUserIdAsync(studentId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(testStudent);
+
+        var paginatedResponse = new Core.Dtos.PaginatedResponse<StudentPerformanceDto>(expectedPerformances, expectedPerformances.Count, 1, 10);
         _mockPerformanceService
-            .Setup(x => x.GetByStudentIdAsync(studentId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedPerformances);
+            .Setup(x => x.GetPaginatedAsync(It.IsAny<Core.Dtos.StudentPerformanceFilterRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(paginatedResponse);
 
         // Act
-        var result = await _controller.GetAllPerformance(subject: null, examType: null, startDate: null, endDate: null, cancellationToken: CancellationToken.None);
+        var result = await _controller.GetAllPerformance(subject: null, examType: null, fromDate: null, toDate: null, search: null, sortBy: null, sortOrder: "asc", page: 1, limit: 10, studentId: null, cancellationToken: CancellationToken.None);
 
         // Assert
-        result.Should().BeOfType<ActionResult<IEnumerable<StudentPerformanceDto>>>();
-        var actionResult = result as ActionResult<IEnumerable<StudentPerformanceDto>>;
+        result.Should().BeOfType<ActionResult<Core.Dtos.PaginatedResponse<StudentPerformanceDto>>>();
+        var actionResult = result as ActionResult<Core.Dtos.PaginatedResponse<StudentPerformanceDto>>;
         actionResult.Should().NotBeNull();
         actionResult!.Result.Should().BeOfType<OkObjectResult>();
         var okResult = actionResult.Result as OkObjectResult;
-        var performances = okResult!.Value.Should().BeAssignableTo<IEnumerable<StudentPerformanceDto>>().Subject;
-        performances.Should().HaveCount(1);
-        performances.Should().AllSatisfy(p => p.StudentId.Should().Be(studentId));
+        var response = okResult!.Value.Should().BeAssignableTo<Core.Dtos.PaginatedResponse<StudentPerformanceDto>>().Subject;
+        response.Data.Should().HaveCount(1);
+        response.Data.Should().AllSatisfy(p => p.StudentId.Should().Be(studentId));
     }
 
     [Test]
