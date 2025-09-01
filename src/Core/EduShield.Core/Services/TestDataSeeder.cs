@@ -18,7 +18,9 @@ public class TestDataSeeder : ITestDataSeeder
     private readonly IStudentFeeRepository _feeRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly IFacultyRepository _facultyRepository;
-    private readonly IParentRepository _parentRepository; // Added _parentRepository
+    private readonly IParentRepository _parentRepository;
+    private readonly IFacultyStudentAssignmentRepository _assignmentRepository;
+    private readonly IStudentPerformanceRepository _performanceRepository;
     private readonly IEncryptionService _encryptionService;
 
     public TestDataSeeder(
@@ -26,14 +28,18 @@ public class TestDataSeeder : ITestDataSeeder
         IStudentFeeRepository feeRepository,
         IStudentRepository studentRepository,
         IFacultyRepository facultyRepository,
-        IParentRepository parentRepository, // Added _parentRepository
+        IParentRepository parentRepository,
+        IFacultyStudentAssignmentRepository assignmentRepository,
+        IStudentPerformanceRepository performanceRepository,
         IEncryptionService encryptionService)
     {
         _userRepository = userRepository;
         _feeRepository = feeRepository;
         _studentRepository = studentRepository;
         _facultyRepository = facultyRepository;
-        _parentRepository = parentRepository; // Initialize _parentRepository
+        _parentRepository = parentRepository;
+        _assignmentRepository = assignmentRepository;
+        _performanceRepository = performanceRepository;
         _encryptionService = encryptionService;
     }
 
@@ -128,6 +134,28 @@ public class TestDataSeeder : ITestDataSeeder
         catch (Exception ex)
         {
             Console.WriteLine($"Error seeding sample fees: {ex.Message}");
+        }
+
+        // Seed faculty-student assignments
+        try
+        {
+            await SeedFacultyStudentAssignmentsAsync();
+            Console.WriteLine("Faculty-student assignments seeded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seeding faculty-student assignments: {ex.Message}");
+        }
+
+        // Seed sample performance data
+        try
+        {
+            await SeedSamplePerformanceDataAsync();
+            Console.WriteLine("Sample performance data seeded successfully");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seeding sample performance data: {ex.Message}");
         }
     }
 
@@ -356,6 +384,129 @@ public class TestDataSeeder : ITestDataSeeder
             {
                 Console.WriteLine($"Error creating fee {fee.FeeType} for student {fee.StudentId}: {ex.Message}");
                 // Continue with next fee instead of failing completely
+            }
+        }
+    }
+
+    private async Task SeedFacultyStudentAssignmentsAsync()
+    {
+        // Get faculty and students
+        var faculty = await _facultyRepository.GetAllAsync();
+        var students = await _studentRepository.GetAllAsync();
+
+        if (!faculty.Any() || !students.Any())
+        {
+            Console.WriteLine("No faculty or students found for assignments");
+            return;
+        }
+
+        // Assign first 3 students to the first faculty member (saquibedu@gmail.com)
+        var firstFaculty = faculty.FirstOrDefault(f => f.Email == "saquibedu@gmail.com");
+        if (firstFaculty == null)
+        {
+            Console.WriteLine("Faculty with email saquibedu@gmail.com not found");
+            return;
+        }
+
+        var studentsToAssign = students.Take(3).ToList();
+        
+        foreach (var student in studentsToAssign)
+        {
+            try
+            {
+                // Check if assignment already exists
+                var existingAssignment = await _assignmentRepository.GetByFacultyAndStudentAsync(firstFaculty.Id, student.Id);
+                if (existingAssignment == null)
+                {
+                    var assignment = new StudentFaculty
+                    {
+                        FacultyId = firstFaculty.Id,
+                        StudentId = student.Id,
+                        AssignedDate = DateTime.UtcNow,
+                        IsActive = true,
+                        Subject = firstFaculty.Subject ?? "Programming",
+                        AcademicYear = "2024-2025",
+                        Semester = "Fall"
+                    };
+
+                    await _assignmentRepository.CreateAsync(assignment);
+                    Console.WriteLine($"Assigned student {student.FirstName} {student.LastName} to faculty {firstFaculty.FirstName} {firstFaculty.LastName}");
+                }
+                else
+                {
+                    Console.WriteLine($"Assignment already exists for student {student.FirstName} {student.LastName} and faculty {firstFaculty.FirstName} {firstFaculty.LastName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating assignment for student {student.Id}: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task SeedSamplePerformanceDataAsync()
+    {
+        // Get faculty-student assignments
+        var assignments = await _assignmentRepository.GetAllAsync();
+        if (!assignments.Any())
+        {
+            Console.WriteLine("No faculty-student assignments found for performance data");
+            return;
+        }
+
+        var examTypes = Enum.GetValues<ExamType>();
+        var subjects = new[] { "Programming", "Mathematics", "Computer Science", "Database Systems", "Web Development" };
+        var random = new Random();
+
+        foreach (var assignment in assignments.Take(10)) // Limit to first 10 assignments
+        {
+            try
+            {
+                // Create 3-5 performance records per assignment
+                var recordCount = random.Next(3, 6);
+                
+                for (int i = 0; i < recordCount; i++)
+                {
+                    var examType = examTypes[random.Next(examTypes.Length)];
+                    var subject = subjects[random.Next(subjects.Length)];
+                    var score = random.Next(60, 100); // Random score between 60-100
+                    var maxScore = 100;
+                    var percentage = (decimal)score / maxScore * 100;
+                    
+                    var grade = percentage switch
+                    {
+                        >= 90 => "A+",
+                        >= 85 => "A",
+                        >= 80 => "B+",
+                        >= 75 => "B",
+                        >= 70 => "C+",
+                        >= 65 => "C",
+                        >= 60 => "D",
+                        _ => "F"
+                    };
+
+                    var performance = new StudentPerformance
+                    {
+                        Id = Guid.NewGuid(),
+                        StudentId = assignment.StudentId,
+                        Subject = subject,
+                        ExamType = examType,
+                        ExamTitle = $"{examType} - {subject} Assessment",
+                        ExamDate = DateTime.UtcNow.AddDays(-random.Next(1, 90)), // Random date in last 90 days
+                        Score = score,
+                        MaxScore = maxScore,
+                        Comments = $"Good performance in {subject}. Keep up the good work!",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    await _performanceRepository.CreateAsync(performance);
+                    Console.WriteLine($"Created performance record: {performance.Subject} - {performance.Grade} for student {assignment.StudentId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating performance data for assignment {assignment.FacultyId}-{assignment.StudentId}: {ex.Message}");
             }
         }
     }

@@ -287,4 +287,37 @@ public class FacultyService : IFacultyService
             AssignedStudents = assignedStudents
         };
     }
+
+    public async Task<IEnumerable<object>> GetAssignedStudentsAsync(Guid facultyId, CancellationToken cancellationToken = default)
+    {
+        var faculty = await _facultyRepository.GetByIdAsync(facultyId, cancellationToken);
+        if (faculty?.StudentFaculties == null)
+        {
+            return Enumerable.Empty<object>();
+        }
+
+        return faculty.StudentFaculties
+            .Where(sf => sf.IsActive && sf.Student != null)
+            .Select(sf => new
+            {
+                id = sf.Student!.Id,
+                firstName = sf.Student.FirstName,
+                lastName = sf.Student.LastName,
+                email = sf.Student.Email,
+                rollNumber = sf.Student.RollNumber,
+                grade = sf.Student.Grade,
+                section = sf.Student.Section,
+                status = sf.Student.Status.ToString(),
+                phoneNumber = sf.Student.PhoneNumber,
+                address = sf.Student.Address,
+                dateOfBirth = sf.Student.DateOfBirth,
+                gender = sf.Student.Gender.ToString(),
+                enrollmentDate = sf.Student.EnrollmentDate,
+                isActive = sf.Student.IsEnrolled,
+                assignedDate = sf.AssignedDate,
+                subject = sf.Subject,
+                academicYear = sf.AcademicYear,
+                semester = sf.Semester
+            });
+    }
 }

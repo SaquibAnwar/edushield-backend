@@ -51,7 +51,6 @@ public class FacultyStudentAssignmentService : IFacultyStudentAssignmentService
             // Create new assignment
             var assignment = new StudentFaculty
             {
-                Id = Guid.NewGuid(),
                 FacultyId = request.FacultyId,
                 StudentId = request.StudentId,
                 AssignedDate = DateTime.UtcNow,
@@ -130,7 +129,6 @@ public class FacultyStudentAssignmentService : IFacultyStudentAssignmentService
                 // Create new assignment
                 var assignment = new StudentFaculty
                 {
-                    Id = Guid.NewGuid(),
                     FacultyId = request.FacultyId,
                     StudentId = student.Id,
                     AssignedDate = DateTime.UtcNow,

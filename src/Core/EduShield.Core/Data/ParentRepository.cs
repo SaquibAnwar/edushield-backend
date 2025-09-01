@@ -22,6 +22,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
+            .Where(p => p.IsActive)
             .OrderBy(p => p.LastName)
             .ThenBy(p => p.FirstName)
             .ToListAsync();
@@ -32,7 +33,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
     }
 
     public async Task<Parent?> GetByEmailAsync(string email)
@@ -40,7 +41,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .FirstOrDefaultAsync(p => p.Email == email);
+            .FirstOrDefaultAsync(p => p.Email == email && p.IsActive);
     }
 
     public async Task<Parent?> GetByUserIdAsync(Guid userId)
@@ -56,7 +57,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .Where(p => p.ParentType == parentType)
+            .Where(p => p.ParentType == parentType && p.IsActive)
             .OrderBy(p => p.LastName)
             .ThenBy(p => p.FirstName)
             .ToListAsync();
@@ -67,7 +68,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .Where(p => p.Children.Any())
+            .Where(p => p.Children.Any() && p.IsActive)
             .OrderBy(p => p.LastName)
             .ThenBy(p => p.FirstName)
             .ToListAsync();
@@ -78,7 +79,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
     }
 
     public async Task<IEnumerable<Parent>> GetByCityAsync(string city)
@@ -86,7 +87,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .Where(p => p.City == city)
+            .Where(p => p.City == city && p.IsActive)
             .OrderBy(p => p.LastName)
             .ThenBy(p => p.FirstName)
             .ToListAsync();
@@ -97,7 +98,7 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .Where(p => p.State == state)
+            .Where(p => p.State == state && p.IsActive)
             .OrderBy(p => p.LastName)
             .ThenBy(p => p.FirstName)
             .ToListAsync();
@@ -109,8 +110,8 @@ public class ParentRepository : IParentRepository
         return await _context.Parents
             .Include(p => p.Children)
             .Include(p => p.User)
-            .Where(p => p.FirstName.ToLower().Contains(normalizedSearchTerm) ||
-                        p.LastName.ToLower().Contains(normalizedSearchTerm))
+            .Where(p => (p.FirstName.ToLower().Contains(normalizedSearchTerm) ||
+                        p.LastName.ToLower().Contains(normalizedSearchTerm)) && p.IsActive)
             .OrderBy(p => p.LastName)
             .ThenBy(p => p.FirstName)
             .ToListAsync();
@@ -165,12 +166,12 @@ public class ParentRepository : IParentRepository
 
     public async Task<bool> ExistsAsync(Guid id)
     {
-        return await _context.Parents.AnyAsync(p => p.Id == id);
+        return await _context.Parents.AnyAsync(p => p.Id == id && p.IsActive);
     }
 
     public async Task<bool> EmailExistsAsync(string email, Guid? excludeId = null)
     {
-        var query = _context.Parents.Where(p => p.Email == email);
+        var query = _context.Parents.Where(p => p.Email == email && p.IsActive);
         
         if (excludeId.HasValue)
         {

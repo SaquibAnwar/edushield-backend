@@ -85,14 +85,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Add Authorization with policies
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(AuthorizationPolicies.AdminOnly, policy => policy.RequireRole(UserRole.Admin));
-    options.AddPolicy(AuthorizationPolicies.StudentOnly, policy => policy.RequireRole(UserRole.Student));
-    options.AddPolicy(AuthorizationPolicies.FacultyOnly, policy => policy.RequireRole(UserRole.Faculty));
-    options.AddPolicy(AuthorizationPolicies.ParentOnly, policy => policy.RequireRole(UserRole.Parent));
-    options.AddPolicy(AuthorizationPolicies.DevAuthOnly, policy => policy.RequireRole(UserRole.DevAuth));
-    options.AddPolicy(AuthorizationPolicies.AdminOrFaculty, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Faculty));
-    options.AddPolicy(AuthorizationPolicies.AdminOrStudent, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Student));
-    options.AddPolicy(AuthorizationPolicies.AdminOrParent, policy => policy.RequireAnyRole(UserRole.Admin, UserRole.Parent));
+    options.AddPolicy(AuthorizationPolicies.AdminOnly, policy => policy.RequireRole("Admin"));
+    options.AddPolicy(AuthorizationPolicies.StudentOnly, policy => policy.RequireRole("Student"));
+    options.AddPolicy(AuthorizationPolicies.FacultyOnly, policy => policy.RequireRole("Faculty"));
+    options.AddPolicy(AuthorizationPolicies.ParentOnly, policy => policy.RequireRole("Parent"));
+    options.AddPolicy(AuthorizationPolicies.DevAuthOnly, policy => policy.RequireRole("DevAuth"));
+    options.AddPolicy(AuthorizationPolicies.AdminOrFaculty, policy => policy.RequireRole("Admin", "Faculty"));
+    options.AddPolicy(AuthorizationPolicies.AdminOrStudent, policy => policy.RequireRole("Admin", "Student"));
+    options.AddPolicy(AuthorizationPolicies.AdminOrParent, policy => policy.RequireRole("Admin", "Parent"));
     options.AddPolicy(AuthorizationPolicies.AuthenticatedUser, policy => policy.RequireAuthenticatedUser());
     
     // Student-specific policies

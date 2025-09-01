@@ -108,4 +108,12 @@ public interface IFacultyService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if employee ID exists, false otherwise</returns>
     Task<bool> EmployeeIdExistsAsync(string employeeId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get students assigned to a faculty member
+    /// </summary>
+    /// <param name="facultyId">Faculty ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Collection of assigned student DTOs</returns>
+    Task<IEnumerable<object>> GetAssignedStudentsAsync(Guid facultyId, CancellationToken cancellationToken = default);
 }

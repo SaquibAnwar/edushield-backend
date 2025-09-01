@@ -167,4 +167,16 @@ public class FacultyStudentAssignmentRepository : IFacultyStudentAssignmentRepos
         return await _context.StudentFaculties
             .CountAsync(sf => sf.StudentId == studentId && sf.IsActive);
     }
+
+    public async Task<List<StudentFaculty>> GetAllAsync()
+    {
+        return await _context.StudentFaculties
+            .Include(sf => sf.Faculty)
+            .Include(sf => sf.Student)
+            .OrderBy(sf => sf.Faculty!.FirstName)
+            .ThenBy(sf => sf.Faculty!.LastName)
+            .ThenBy(sf => sf.Student!.FirstName)
+            .ThenBy(sf => sf.Student!.LastName)
+            .ToListAsync();
+    }
 }

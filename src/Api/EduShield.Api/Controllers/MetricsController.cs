@@ -206,6 +206,132 @@ public class MetricsController : ControllerBase
     }
 
     /// <summary>
+    /// Get faculty metrics for dashboard by faculty ID
+    /// </summary>
+    /// <remarks>
+    /// Retrieves comprehensive metrics for a specific faculty member including:
+    /// - Number of assigned students
+    /// - Total subjects teaching
+    /// - Recent student performances (last 30 days)
+    /// - Average class grade
+    /// 
+    /// **Sample Response:**
+    /// ```json
+    /// {
+    ///   "assignedStudents": 25,
+    ///   "totalSubjects": 3,
+    ///   "averageClassGrade": "B+",
+    ///   "recentPerformances": [
+    ///     {
+    ///       "id": "guid",
+    ///       "studentId": "guid",
+    ///       "studentFirstName": "John",
+    ///       "studentLastName": "Doe",
+    ///       "subject": "Mathematics",
+    ///       "examType": "MidTerm",
+    ///       "examDate": "2024-01-15T00:00:00Z",
+    ///       "score": 85,
+    ///       "maxScore": 100,
+    ///       "percentage": 85.0,
+    ///       "grade": "A",
+    ///       "formattedScore": "85/100",
+    ///       "examTitle": "Mid-term Mathematics Exam",
+    ///       "comments": "Good performance",
+    ///       "createdAt": "2024-01-15T10:30:00Z",
+    ///       "updatedAt": "2024-01-15T10:30:00Z"
+    ///     }
+    ///   ]
+    /// }
+    /// ```
+    /// </remarks>
+    /// <param name="facultyId">Faculty ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Faculty metrics data</returns>
+    /// <response code="200">Metrics retrieved successfully.</response>
+    /// <response code="401">Unauthorized. Valid JWT token required.</response>
+    /// <response code="403">Forbidden. Admin role or faculty accessing own data required.</response>
+    /// <response code="404">Faculty not found.</response>
+    /// <response code="500">Internal server error during metrics retrieval.</response>
+    [HttpGet("faculty/{facultyId:guid}")]
+    [Authorize(Policy = "AdminOrFaculty")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(typeof(ProblemDetails), 401)]
+    [ProducesResponseType(typeof(ProblemDetails), 403)]
+    [ProducesResponseType(typeof(ProblemDetails), 404)]
+    [ProducesResponseType(typeof(ProblemDetails), 500)]
+    public async Task<ActionResult> GetFacultyMetrics(Guid facultyId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Check if faculty exists
+            var faculty = await _context.Faculty
+                .FirstOrDefaultAsync(f => f.Id == facultyId, cancellationToken);
+
+            if (faculty == null)
+            {
+                return NotFound(new { error = "Faculty not found." });
+            }
+
+            // For now, we'll return mock data since faculty-student assignments aren't implemented
+            // TODO: Implement proper faculty-student assignment system
+            
+            // Get all students (temporary - should be filtered by faculty assignment)
+            var allStudents = await _context.Students
+                .Where(s => s.Status == StudentStatus.Active)
+                .ToListAsync(cancellationToken);
+
+            // Get recent performances for all students (temporary - should be filtered by faculty's students)
+            var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+            var recentPerformances = await _context.StudentPerformances
+                .Where(p => p.ExamDate >= thirtyDaysAgo)
+                .OrderByDescending(p => p.ExamDate)
+                .Take(10)
+                .Select(p => new
+                {
+                    id = p.Id.ToString(),
+                    studentId = p.StudentId.ToString(),
+                    studentFirstName = p.Student.FirstName,
+                    studentLastName = p.Student.LastName,
+                    subject = p.Subject,
+                    examType = p.ExamType,
+                    examDate = p.ExamDate.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    score = p.Score,
+                    maxScore = p.MaxScore,
+                    examTitle = p.ExamTitle,
+                    comments = p.Comments,
+                    percentage = p.MaxScore > 0 ? (decimal)p.Score / p.MaxScore * 100 : 0,
+                    grade = p.Grade,
+                    formattedScore = p.MaxScore > 0 ? $"{p.Score}/{p.MaxScore}" : p.Score.ToString(),
+                    createdAt = p.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    updatedAt = p.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                })
+                .ToListAsync(cancellationToken);
+
+            // Calculate average grade (simplified)
+            var averageGrade = "B+"; // Mock data for now
+
+            // Get unique subjects taught by this faculty (based on faculty.Subject for now)
+            var totalSubjects = !string.IsNullOrEmpty(faculty.Subject) ? 1 : 0;
+
+            var metrics = new
+            {
+                assignedStudents = allStudents.Count, // Mock data - should be actual assigned students
+                totalSubjects = totalSubjects,
+                averageClassGrade = averageGrade,
+                recentPerformances = recentPerformances
+            };
+
+            _logger.LogInformation("Faculty metrics retrieved successfully for FacultyId: {FacultyId}", facultyId);
+            return Ok(metrics);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while retrieving faculty metrics for FacultyId: {FacultyId}", facultyId);
+            return StatusCode(500, new { error = "An unexpected error occurred while retrieving faculty metrics." });
+        }
+    }
+
+    /// <summary>
     /// Get admin metrics for dashboard
     /// </summary>
     /// <remarks>

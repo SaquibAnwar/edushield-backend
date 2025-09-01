@@ -156,17 +156,4 @@ public class Student : AuditableEntity
     public int ParentsCount => ParentStudents.Count(ps => ps.IsActive);
 }
 
-// Many-to-many relationship between Student and Faculty
-public class StudentFaculty : AuditableEntity
-{
-    public Guid Id { get; set; }
-    public Guid StudentId { get; set; }
-    public Guid FacultyId { get; set; }
-    public DateTime AssignedDate { get; set; }
-    public bool IsActive { get; set; } = true;
-    public string? Notes { get; set; } // Optional notes about the assignment
-    
-    // Navigation properties
-    public Student? Student { get; set; }
-    public Faculty? Faculty { get; set; }
-}
+

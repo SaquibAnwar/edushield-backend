@@ -88,6 +88,12 @@ public interface IFacultyStudentAssignmentRepository
     /// <param name="studentId">Student ID</param>
     /// <returns>Count of active assignments</returns>
     Task<int> GetStudentActiveAssignmentCountAsync(Guid studentId);
+    
+    /// <summary>
+    /// Gets all faculty-student assignments
+    /// </summary>
+    /// <returns>List of all assignments</returns>
+    Task<List<StudentFaculty>> GetAllAsync();
 }
 
 

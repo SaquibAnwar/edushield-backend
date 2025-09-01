@@ -10,7 +10,7 @@ namespace EduShield.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/faculty")]
-[Authorize(Roles = "Admin,DevAuth")]
+[Authorize]
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), 400)]
 [ProducesResponseType(typeof(ProblemDetails), 401)]
@@ -69,6 +69,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during faculty creation.</response>
     [HttpPost]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(FacultyDto), 201)]
     public async Task<ActionResult<FacultyDto>> CreateFaculty(
         [FromBody] CreateFacultyRequest request,
@@ -97,6 +98,7 @@ public class FacultyController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Retrieves detailed information about a faculty member by their unique identifier.
+    /// Faculty users can access their own data, while Admin/DevAuth can access any faculty data.
     /// 
     /// **Returns:**
     /// - Basic personal information (name, email, phone, address, DOB, gender)
@@ -126,10 +128,11 @@ public class FacultyController : ControllerBase
     /// <returns>Faculty information</returns>
     /// <response code="200">Faculty found successfully. Returns faculty details.</response>
     /// <response code="401">Unauthorized. Valid JWT token required.</response>
-    /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
+    /// <response code="403">Forbidden. Admin, DevAuth, or Faculty accessing own data required.</response>
     /// <response code="404">Faculty not found.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "AdminOrFaculty")]
     [ProducesResponseType(typeof(FacultyDto), 200)]
     public async Task<ActionResult<FacultyDto>> GetFaculty(
         Guid id,
@@ -141,6 +144,15 @@ public class FacultyController : ControllerBase
             if (faculty == null)
             {
                 return NotFound(new { error = "Faculty member not found." });
+            }
+
+            // Check if user is faculty and trying to access their own data
+            var userEmail = User.FindFirst("email")?.Value;
+            var userRole = User.FindFirst("role")?.Value;
+            
+            if (userRole == "Faculty" && userEmail != faculty.Email)
+            {
+                return Forbid("Faculty users can only access their own data.");
             }
 
             return Ok(faculty);
@@ -159,16 +171,18 @@ public class FacultyController : ControllerBase
     /// Retrieves faculty information by their email address.
     /// 
     /// **Note:** Email search is case-insensitive.
+    /// Faculty users can access their own data, while Admin/DevAuth can access any faculty data.
     /// </remarks>
     /// <param name="email">Faculty email address</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Faculty information</returns>
     /// <response code="200">Faculty found successfully. Returns faculty details.</response>
     /// <response code="401">Unauthorized. Valid JWT token required.</response>
-    /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
+    /// <response code="403">Forbidden. Admin, DevAuth, or Faculty accessing own data required.</response>
     /// <response code="404">Faculty not found.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet("email/{email}")]
+    [Authorize(Policy = "AdminOrFaculty")]
     [ProducesResponseType(typeof(FacultyDto), 200)]
     public async Task<ActionResult<FacultyDto>> GetFacultyByEmail(
         string email,
@@ -176,6 +190,15 @@ public class FacultyController : ControllerBase
     {
         try
         {
+            // Check if user is faculty and trying to access their own data
+            var userEmail = User.FindFirst("email")?.Value;
+            var userRole = User.FindFirst("role")?.Value;
+            
+            if (userRole == "Faculty" && userEmail != email)
+            {
+                return Forbid("Faculty users can only access their own data.");
+            }
+
             var faculty = await _facultyService.GetByEmailAsync(email, cancellationToken);
             if (faculty == null)
             {
@@ -208,6 +231,7 @@ public class FacultyController : ControllerBase
     /// <response code="404">Faculty not found.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet("employee/{employeeId}")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(FacultyDto), 200)]
     public async Task<ActionResult<FacultyDto>> GetFacultyByEmployeeId(
         string employeeId,
@@ -246,6 +270,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(IEnumerable<FacultyDto>), 200)]
     public async Task<ActionResult<IEnumerable<FacultyDto>>> GetAllFaculty(
         CancellationToken cancellationToken)
@@ -282,6 +307,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet("department/{department}")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(IEnumerable<FacultyDto>), 200)]
     public async Task<ActionResult<IEnumerable<FacultyDto>>> GetFacultyByDepartment(
         string department,
@@ -319,6 +345,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet("subject/{subject}")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(IEnumerable<FacultyDto>), 200)]
     public async Task<ActionResult<IEnumerable<FacultyDto>>> GetFacultyBySubject(
         string subject,
@@ -350,6 +377,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during retrieval.</response>
     [HttpGet("active")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(IEnumerable<FacultyDto>), 200)]
     public async Task<ActionResult<IEnumerable<FacultyDto>>> GetActiveFaculty(
         CancellationToken cancellationToken)
@@ -399,6 +427,7 @@ public class FacultyController : ControllerBase
     /// <response code="404">Faculty not found.</response>
     /// <response code="500">Internal server error during update.</response>
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(FacultyDto), 200)]
     public async Task<ActionResult<FacultyDto>> UpdateFaculty(
         Guid id,
@@ -441,6 +470,7 @@ public class FacultyController : ControllerBase
     /// <response code="404">Faculty not found.</response>
     /// <response code="500">Internal server error during deletion.</response>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(204)]
     public async Task<ActionResult> DeleteFaculty(
         Guid id,
@@ -479,6 +509,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during check.</response>
     [HttpGet("{id:guid}/exists")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(bool), 200)]
     public async Task<ActionResult<bool>> FacultyExists(
         Guid id,
@@ -511,6 +542,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during check.</response>
     [HttpGet("email/{email}/exists")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(bool), 200)]
     public async Task<ActionResult<bool>> EmailExists(
         string email,
@@ -543,6 +575,7 @@ public class FacultyController : ControllerBase
     /// <response code="403">Forbidden. Admin or DevAuth role required.</response>
     /// <response code="500">Internal server error during check.</response>
     [HttpGet("employee/{employeeId}/exists")]
+    [Authorize(Roles = "Admin,DevAuth")]
     [ProducesResponseType(typeof(bool), 200)]
     public async Task<ActionResult<bool>> EmployeeIdExists(
         string employeeId,
@@ -557,6 +590,57 @@ public class FacultyController : ControllerBase
         {
             _logger.LogError(ex, "Error occurred while checking if employee ID exists: {EmployeeId}", employeeId);
             return StatusCode(500, new { error = "An unexpected error occurred while checking employee ID existence." });
+        }
+    }
+
+    /// <summary>
+    /// Get students assigned to a faculty member
+    /// </summary>
+    /// <remarks>
+    /// Retrieves all students assigned to a specific faculty member.
+    /// Faculty users can only access their own assigned students.
+    /// </remarks>
+    /// <param name="id">Faculty ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of assigned students</returns>
+    /// <response code="200">Students retrieved successfully.</response>
+    /// <response code="401">Unauthorized. Valid JWT token required.</response>
+    /// <response code="403">Forbidden. Admin, DevAuth, or Faculty accessing own data required.</response>
+    /// <response code="404">Faculty not found.</response>
+    /// <response code="500">Internal server error during retrieval.</response>
+    [HttpGet("{id:guid}/students")]
+    [Authorize(Policy = "AdminOrFaculty")]
+    [ProducesResponseType(typeof(IEnumerable<object>), 200)]
+    public async Task<ActionResult> GetFacultyStudents(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var faculty = await _facultyService.GetByIdAsync(id, cancellationToken);
+            if (faculty == null)
+            {
+                return NotFound(new { error = "Faculty member not found." });
+            }
+
+            // Check if user is faculty and trying to access their own data
+            var userEmail = User.FindFirst("email")?.Value;
+            var userRole = User.FindFirst("role")?.Value;
+            
+            if (userRole == "Faculty" && userEmail != faculty.Email)
+            {
+                return Forbid("Faculty users can only access their own assigned students.");
+            }
+
+            // Get assigned students through the faculty service
+            var assignedStudents = await _facultyService.GetAssignedStudentsAsync(id, cancellationToken);
+            
+            return Ok(assignedStudents);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while retrieving students for faculty ID: {FacultyId}", id);
+            return StatusCode(500, new { error = "An unexpected error occurred while retrieving assigned students." });
         }
     }
 }
