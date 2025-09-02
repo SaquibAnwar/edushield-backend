@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EduShield.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/health")]
+[EnableRateLimiting("AdminPolicy")]
 public class HealthController : ControllerBase
 {
     [HttpGet]

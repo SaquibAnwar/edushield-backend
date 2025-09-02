@@ -3,6 +3,7 @@ using EduShield.Core.Dtos;
 using EduShield.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EduShield.Api.Controllers;
 
@@ -14,6 +15,7 @@ namespace EduShield.Api.Controllers;
 [Produces("application/json")]
 [ProducesResponseType(typeof(ProblemDetails), 400)]
 [ProducesResponseType(typeof(ProblemDetails), 500)]
+[EnableRateLimiting("AuthPolicy")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;

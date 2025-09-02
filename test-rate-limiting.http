@@ -1,0 +1,89 @@
+### Rate Limiting Test Suite for EduShield API
+### This file contains HTTP requests to test the rate limiting implementation
+
+### Variables
+@baseUrl = http://localhost:8080
+@authToken = your_jwt_token_here
+
+### 1. Test Health Endpoint (should have AdminPolicy - 500 requests/minute for admins)
+GET {{baseUrl}}/api/v1/health
+Content-Type: application/json
+
+### 2. Test Authentication Endpoint (should have AuthPolicy - 5 requests/minute)
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "testpassword"
+}
+
+### 3. Test Student Endpoints (should have StudentPolicy - user-based limits)
+GET {{baseUrl}}/api/v1/students
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 4. Test Student Performance Endpoints (should have PerformancePolicy - user-based limits)
+GET {{baseUrl}}/api/v1/student-performance
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 5. Test User Management Endpoints (should have AdminPolicy - user-based limits)
+GET {{baseUrl}}/api/v1/user
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 6. Test Rate Limit Exceeded Scenario
+### Run this request multiple times quickly to trigger rate limiting
+GET {{baseUrl}}/api/v1/health
+
+### 7. Test Authentication Rate Limiting
+### Run this request multiple times quickly to trigger auth rate limiting
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "wrongpassword"
+}
+
+### 8. Test with Different User Roles
+### Admin user (should have higher limits)
+GET {{baseUrl}}/api/v1/students
+Authorization: Bearer admin_jwt_token_here
+Content-Type: application/json
+
+### Teacher user (should have moderate limits)
+GET {{baseUrl}}/api/v1/students
+Authorization: Bearer teacher_jwt_token_here
+Content-Type: application/json
+
+### Student user (should have lower limits)
+GET {{baseUrl}}/api/v1/students
+Authorization: Bearer student_jwt_token_here
+Content-Type: application/json
+
+### 9. Test Sensitive Operations (Create, Update, Delete)
+### These should have more restrictive limits
+POST {{baseUrl}}/api/v1/students
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "Student",
+  "email": "teststudent@example.com",
+  "rollNumber": "TEST001",
+  "gender": "Male",
+  "status": "Active"
+}
+
+### 10. Test Rate Limit Response Format
+### When rate limit is exceeded, you should get a 429 response with:
+### {
+###   "error": "Rate limit exceeded",
+###   "message": "Too many requests. Please try again later.",
+###   "retryAfter": 60,
+###   "policy": "AuthPolicy",
+###   "timestamp": "2024-01-01T00:00:00Z"
+### }

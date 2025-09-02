@@ -5,12 +5,14 @@ using EduShield.Core.Enums;
 using EduShield.Core.Interfaces;
 using EduShield.Core.Dtos;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EduShield.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
 [Authorize]
+[EnableRateLimiting("AdminPolicy")]
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
