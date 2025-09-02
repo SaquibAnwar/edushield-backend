@@ -1,0 +1,60 @@
+### Test Redis Caching Implementation
+### Make sure Redis is running: docker-compose up redis
+
+### 1. Test Student Caching - Get student by ID (should cache on first call)
+GET http://localhost:8080/api/v1/students/{{studentId}}
+Authorization: Bearer {{jwt_token}}
+
+### 2. Test Student Caching - Get same student again (should come from cache)
+GET http://localhost:8080/api/v1/students/{{studentId}}
+Authorization: Bearer {{jwt_token}}
+
+### 3. Test Student Performance Caching - Get performance by ID
+GET http://localhost:8080/api/v1/student-performance/{{performanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### 4. Test Student Performance Caching - Get same performance again (should come from cache)
+GET http://localhost:8080/api/v1/student-performance/{{performanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### 5. Test Student Performance Caching - Get performances by student ID
+GET http://localhost:8080/api/v1/student-performance/student/{{studentId}}
+Authorization: Bearer {{jwt_token}}
+
+### 6. Test Student Performance Caching - Get same student performances again (should come from cache)
+GET http://localhost:8080/api/v1/student-performance/student/{{studentId}}
+Authorization: Bearer {{jwt_token}}
+
+### 7. Test Cache Invalidation - Create new student performance (should invalidate related caches)
+POST http://localhost:8080/api/v1/student-performance
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "studentId": "{{studentId}}",
+  "subject": "Mathematics",
+  "examType": "Midterm",
+  "examDate": "2024-01-15T10:00:00Z",
+  "score": 85.5,
+  "maxScore": 100,
+  "examTitle": "Midterm Exam",
+  "comments": "Good performance"
+}
+
+### 8. Test Cache Invalidation - Get student performances again (should fetch fresh data)
+GET http://localhost:8080/api/v1/student-performance/student/{{studentId}}
+Authorization: Bearer {{jwt_token}}
+
+### 9. Test Cache Invalidation - Update student (should invalidate student cache)
+PUT http://localhost:8080/api/v1/students/{{studentId}}
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "firstName": "Updated Name",
+  "lastName": "Updated LastName"
+}
+
+### 10. Test Cache Invalidation - Get updated student (should fetch fresh data)
+GET http://localhost:8080/api/v1/students/{{studentId}}
+Authorization: Bearer {{jwt_token}}

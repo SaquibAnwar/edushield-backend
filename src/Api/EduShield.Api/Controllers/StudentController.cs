@@ -4,12 +4,14 @@ using EduShield.Core.Enums;
 using EduShield.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EduShield.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/students")]
 [Authorize]
+[EnableRateLimiting("StudentPolicy")]
 public class StudentController : ControllerBase
 {
     private readonly IStudentService _studentService;

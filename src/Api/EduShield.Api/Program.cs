@@ -17,6 +17,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Reflection;
 using Serilog;
+using System.Threading.RateLimiting;
+using EduShield.Api.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -175,6 +177,59 @@ builder.Services.AddScoped<IStudentFeeRepository, StudentFeeRepository>();
 builder.Services.AddScoped<IFacultyStudentAssignmentRepository, FacultyStudentAssignmentRepository>();
 builder.Services.AddScoped<IParentStudentAssignmentRepository, ParentStudentAssignmentRepository>();
 
+// Add Cache Service
+builder.Services.AddScoped<ICacheService, RedisCacheService>();
+
+// Add Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    // Global rate limiting policy
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.Identity?.IsAuthenticated == true 
+                ? httpContext.User.Identity.Name ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous"
+                : httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100, // 100 requests
+                Window = TimeSpan.FromMinutes(1), // per minute
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 10
+            }));
+
+    // Authentication endpoints - more restrictive
+    options.AddPolicy("AuthPolicy", UserBasedRateLimitingPolicy.GetAuthRateLimiter);
+
+    // Student endpoints - user-based limits
+    options.AddPolicy("StudentPolicy", UserBasedRateLimitingPolicy.GetUserBasedRateLimiter);
+
+    // Student Performance endpoints - user-based limits
+    options.AddPolicy("PerformancePolicy", UserBasedRateLimitingPolicy.GetUserBasedRateLimiter);
+
+    // Admin endpoints - user-based limits
+    options.AddPolicy("AdminPolicy", UserBasedRateLimitingPolicy.GetUserBasedRateLimiter);
+
+    // Sensitive operations (create, update, delete) - more restrictive
+    options.AddPolicy("SensitiveOperationPolicy", UserBasedRateLimitingPolicy.GetSensitiveOperationRateLimiter);
+
+    // Custom rejection response
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+        
+        var response = new
+        {
+            error = "Rate limit exceeded",
+            message = "Too many requests. Please try again later.",
+            retryAfter = 60 // Default retry after 60 seconds
+        };
+        
+        await context.HttpContext.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response), token);
+    };
+});
+
 // Add Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
@@ -207,7 +262,8 @@ else
         .AddDbContextCheck<EduShieldDbContext>();
 }
 
-// Add Redis Cache (optional)
+//TODO
+// Add Redis Cache - will take care of it later
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
@@ -244,6 +300,10 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+
+// Use Rate Limiting
+app.UseRateLimiter();
+app.UseCustomRateLimiting();
 
 // Use JWT Authentication Middleware
 app.UseJwtAuthentication();

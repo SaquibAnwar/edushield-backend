@@ -20,6 +20,7 @@ public class StudentServiceTests : BaseTestFixture
 {
     private Mock<IStudentRepository> _mockStudentRepository = null!;
     private Mock<IUserRepository> _mockUserRepository = null!;
+    private Mock<ICacheService> _mockCacheService = null!;
     private StudentService _studentService = null!;
 
     [SetUp]
@@ -29,8 +30,9 @@ public class StudentServiceTests : BaseTestFixture
         
         _mockStudentRepository = MockRepository.Create<IStudentRepository>();
         _mockUserRepository = MockRepository.Create<IUserRepository>();
+        _mockCacheService = MockRepository.Create<ICacheService>();
         
-        _studentService = new StudentService(_mockStudentRepository.Object, _mockUserRepository.Object);
+        _studentService = new StudentService(_mockStudentRepository.Object, _mockUserRepository.Object, _mockCacheService.Object);
     }
 
     #region CreateAsync Tests
@@ -73,6 +75,11 @@ public class StudentServiceTests : BaseTestFixture
         _mockStudentRepository
             .Setup(x => x.CreateAsync(It.IsAny<Student>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStudent);
+
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         // Act
         var result = await _studentService.CreateAsync(request);
@@ -225,6 +232,11 @@ public class StudentServiceTests : BaseTestFixture
             .Setup(x => x.CreateAsync(It.IsAny<Student>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStudent);
 
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         // Act
         var result = await _studentService.CreateAsync(request);
 
@@ -244,9 +256,19 @@ public class StudentServiceTests : BaseTestFixture
         var studentId = Guid.NewGuid();
         var expectedStudent = CreateTestStudent(studentId);
 
+        // Setup cache to return null (cache miss)
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentDto?)null);
+
         _mockStudentRepository
             .Setup(x => x.GetByIdAsync(studentId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStudent);
+
+        // Setup cache service to expect SetAsync call
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         // Act
         var result = await _studentService.GetByIdAsync(studentId);
@@ -256,6 +278,43 @@ public class StudentServiceTests : BaseTestFixture
         result!.Id.Should().Be(studentId);
         result.FirstName.Should().Be(expectedStudent.FirstName);
         result.LastName.Should().Be(expectedStudent.LastName);
+
+        // Verify cache was called
+        _mockCacheService.Verify(x => x.GetAsync<StudentDto>($"student_{studentId}", It.IsAny<CancellationToken>()), Times.Once);
+        _mockCacheService.Verify(x => x.SetAsync($"student_{studentId}", It.IsAny<StudentDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task GetByIdAsync_CacheHit_ReturnsCachedStudent()
+    {
+        // Arrange
+        var studentId = Guid.NewGuid();
+        var expectedStudent = CreateTestStudent(studentId);
+        var cachedStudentDto = new StudentDto
+        {
+            Id = studentId,
+            FirstName = expectedStudent.FirstName,
+            LastName = expectedStudent.LastName,
+            Email = expectedStudent.Email
+        };
+
+        // Setup cache to return cached data (cache hit)
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentDto>($"student_{studentId}", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(cachedStudentDto);
+
+        // Act
+        var result = await _studentService.GetByIdAsync(studentId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(studentId);
+        result.FirstName.Should().Be(expectedStudent.FirstName);
+        result.LastName.Should().Be(expectedStudent.LastName);
+
+        // Verify cache was called but repository was NOT called
+        _mockCacheService.Verify(x => x.GetAsync<StudentDto>($"student_{studentId}", It.IsAny<CancellationToken>()), Times.Once);
+        _mockStudentRepository.Verify(x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
@@ -263,6 +322,11 @@ public class StudentServiceTests : BaseTestFixture
     {
         // Arrange
         var studentId = Guid.NewGuid();
+
+        // Setup cache to return null (cache miss)
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentDto?)null);
 
         _mockStudentRepository
             .Setup(x => x.GetByIdAsync(studentId, It.IsAny<CancellationToken>()))
@@ -291,6 +355,15 @@ public class StudentServiceTests : BaseTestFixture
             .Setup(x => x.GetByEmailAsync(email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStudent);
 
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentDto?)null);
+        
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         // Act
         var result = await _studentService.GetByEmailAsync(email);
 
@@ -308,6 +381,11 @@ public class StudentServiceTests : BaseTestFixture
         _mockStudentRepository
             .Setup(x => x.GetByEmailAsync(email, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Student?)null);
+
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentDto?)null);
 
         // Act
         var result = await _studentService.GetByEmailAsync(email);
@@ -332,6 +410,15 @@ public class StudentServiceTests : BaseTestFixture
             .Setup(x => x.GetByRollNumberAsync(rollNumber, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStudent);
 
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentDto?)null);
+        
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         // Act
         var result = await _studentService.GetByRollNumberAsync(rollNumber);
 
@@ -349,6 +436,11 @@ public class StudentServiceTests : BaseTestFixture
         _mockStudentRepository
             .Setup(x => x.GetByRollNumberAsync(rollNumber, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Student?)null);
+
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentDto?)null);
 
         // Act
         var result = await _studentService.GetByRollNumberAsync(rollNumber);
@@ -543,6 +635,15 @@ public class StudentServiceTests : BaseTestFixture
             .Setup(x => x.UpdateAsync(It.IsAny<Student>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingStudent);
 
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         // Act
         var result = await _studentService.UpdateAsync(studentId, request);
 
@@ -610,8 +711,18 @@ public class StudentServiceTests : BaseTestFixture
         var studentId = Guid.NewGuid();
 
         // Setup mock to avoid strict mock failures
+        var expectedStudent = CreateTestStudent(studentId);
+        _mockStudentRepository
+            .Setup(x => x.GetByIdAsync(studentId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedStudent);
+        
         _mockStudentRepository
             .Setup(x => x.DeleteAsync(studentId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act

@@ -5,6 +5,7 @@ using EduShield.Core.Services;
 using EduShield.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EduShield.Api.Controllers;
 
@@ -19,6 +20,7 @@ namespace EduShield.Api.Controllers;
 [ProducesResponseType(typeof(ProblemDetails), 403)]
 [ProducesResponseType(typeof(ProblemDetails), 404)]
 [ProducesResponseType(typeof(ProblemDetails), 500)]
+[EnableRateLimiting("PerformancePolicy")]
 public class StudentPerformanceController : ControllerBase
 {
     private readonly IStudentPerformanceService _performanceService;
