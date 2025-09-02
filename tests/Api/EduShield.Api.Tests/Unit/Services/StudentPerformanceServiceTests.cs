@@ -22,6 +22,7 @@ public class StudentPerformanceServiceTests
     private Mock<IStudentRepository> _mockStudentRepository = null!;
     private Mock<IUserRepository> _mockUserRepository = null!;
     private Mock<IEncryptionService> _mockEncryptionService = null!;
+    private Mock<ICacheService> _mockCacheService = null!;
     private StudentPerformanceService _service = null!;
 
     [SetUp]
@@ -31,12 +32,14 @@ public class StudentPerformanceServiceTests
         _mockStudentRepository = new Mock<IStudentRepository>();
         _mockUserRepository = new Mock<IUserRepository>();
         _mockEncryptionService = new Mock<IEncryptionService>();
+        _mockCacheService = new Mock<ICacheService>();
         
         _service = new StudentPerformanceService(
             _mockPerformanceRepository.Object,
             _mockStudentRepository.Object,
             _mockUserRepository.Object,
-            _mockEncryptionService.Object);
+            _mockEncryptionService.Object,
+            _mockCacheService.Object);
     }
 
     [Test]
@@ -72,6 +75,14 @@ public class StudentPerformanceServiceTests
             .Setup(x => x.CreateAsync(It.IsAny<StudentPerformance>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(performance);
 
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentPerformanceDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         // Act
         var result = await _service.CreateAsync(request);
 
@@ -83,6 +94,10 @@ public class StudentPerformanceServiceTests
 
         _mockPerformanceRepository.Verify(x => x.CreateAsync(It.IsAny<StudentPerformance>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockEncryptionService.Verify(x => x.EncryptDecimal(request.Score), Times.Once);
+        
+        // Verify cache operations
+        _mockCacheService.Verify(x => x.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _mockCacheService.Verify(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentPerformanceDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -203,6 +218,11 @@ public class StudentPerformanceServiceTests
         performance.Id = performanceId; // Set the ID explicitly
         var decryptedScore = 85.0m;
 
+        // Setup cache to return null (cache miss)
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentPerformanceDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentPerformanceDto?)null);
+
         _mockPerformanceRepository
             .Setup(x => x.GetByIdAsync(performanceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(performance);
@@ -210,6 +230,11 @@ public class StudentPerformanceServiceTests
         _mockEncryptionService
             .Setup(x => x.DecryptDecimal(performance.EncryptedScore))
             .Returns(decryptedScore);
+
+        // Setup cache service to expect SetAsync call
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<StudentPerformanceDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.GetByIdAsync(performanceId);
@@ -221,6 +246,44 @@ public class StudentPerformanceServiceTests
         result.Subject.Should().Be("Mathematics");
 
         _mockEncryptionService.Verify(x => x.DecryptDecimal(performance.EncryptedScore), Times.Once);
+        
+        // Verify cache operations
+        _mockCacheService.Verify(x => x.GetAsync<StudentPerformanceDto>($"student_performance_{performanceId}", It.IsAny<CancellationToken>()), Times.Once);
+        _mockCacheService.Verify(x => x.SetAsync($"student_performance_{performanceId}", It.IsAny<StudentPerformanceDto>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task GetByIdAsync_CacheHit_ReturnsCachedPerformance()
+    {
+        // Arrange
+        var performanceId = Guid.NewGuid();
+        var studentId = Guid.NewGuid();
+        var cachedPerformanceDto = new StudentPerformanceDto
+        {
+            Id = performanceId,
+            StudentId = studentId,
+            Subject = "Mathematics",
+            ExamType = ExamType.MidTerm,
+            Score = 85.0m
+        };
+
+        // Setup cache to return cached data (cache hit)
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentPerformanceDto>($"student_performance_{performanceId}", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(cachedPerformanceDto);
+
+        // Act
+        var result = await _service.GetByIdAsync(performanceId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(performanceId);
+        result.Score.Should().Be(85.0m);
+        result.Subject.Should().Be("Mathematics");
+
+        // Verify cache was called but repository was NOT called
+        _mockCacheService.Verify(x => x.GetAsync<StudentPerformanceDto>($"student_performance_{performanceId}", It.IsAny<CancellationToken>()), Times.Once);
+        _mockPerformanceRepository.Verify(x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Test]
@@ -228,6 +291,11 @@ public class StudentPerformanceServiceTests
     {
         // Arrange
         var performanceId = Guid.NewGuid();
+
+        // Setup cache to return null (cache miss)
+        _mockCacheService
+            .Setup(x => x.GetAsync<StudentPerformanceDto>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((StudentPerformanceDto?)null);
 
         _mockPerformanceRepository
             .Setup(x => x.GetByIdAsync(performanceId, It.IsAny<CancellationToken>()))
@@ -260,6 +328,15 @@ public class StudentPerformanceServiceTests
         _mockEncryptionService
             .Setup(x => x.DecryptDecimal(It.IsAny<string>()))
             .Returns(decryptedScore);
+
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.GetAsync<IEnumerable<StudentPerformanceDto>>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<StudentPerformanceDto>?)null);
+        
+        _mockCacheService
+            .Setup(x => x.SetAsync(It.IsAny<string>(), It.IsAny<IEnumerable<StudentPerformanceDto>>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.GetByStudentIdAsync(studentId);
@@ -501,12 +578,24 @@ public class StudentPerformanceServiceTests
         // Arrange
         var performanceId = Guid.NewGuid();
 
+        var expectedPerformance = CreateTestPerformance(Guid.NewGuid(), "Mathematics", ExamType.MidTerm, DateTime.Today);
+        expectedPerformance.Id = performanceId;
+        
+        _mockPerformanceRepository
+            .Setup(x => x.GetByIdAsync(performanceId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedPerformance);
+
         _mockPerformanceRepository
             .Setup(x => x.ExistsAsync(performanceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         _mockPerformanceRepository
             .Setup(x => x.DeleteAsync(performanceId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Setup cache service expectations
+        _mockCacheService
+            .Setup(x => x.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act

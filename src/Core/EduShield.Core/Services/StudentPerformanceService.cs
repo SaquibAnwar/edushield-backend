@@ -15,17 +15,21 @@ public class StudentPerformanceService : IStudentPerformanceService
     private readonly IStudentRepository _studentRepository;
     private readonly IUserRepository _userRepository;
     private readonly IEncryptionService _encryptionService;
+    private readonly ICacheService _cacheService;
+    private const int CACHE_EXPIRATION_MINUTES = 10; // Shorter cache for performance data
 
     public StudentPerformanceService(
         IStudentPerformanceRepository performanceRepository,
         IStudentRepository studentRepository,
         IUserRepository userRepository,
-        IEncryptionService encryptionService)
+        IEncryptionService encryptionService,
+        ICacheService cacheService)
     {
         _performanceRepository = performanceRepository;
         _studentRepository = studentRepository;
         _userRepository = userRepository;
         _encryptionService = encryptionService;
+        _cacheService = cacheService;
     }
 
     public async Task<StudentPerformanceDto> CreateAsync(CreateStudentPerformanceRequest request, CancellationToken cancellationToken = default)
@@ -70,19 +74,63 @@ public class StudentPerformanceService : IStudentPerformanceService
         };
 
         var createdPerformance = await _performanceRepository.CreateAsync(performance, cancellationToken);
-        return MapToDto(createdPerformance);
+        var performanceDto = MapToDto(createdPerformance);
+        
+        // Invalidate related caches
+        await InvalidateStudentPerformanceCacheAsync(createdPerformance, cancellationToken);
+        
+        // Cache the newly created performance
+        var cacheKey = $"student_performance_{createdPerformance.Id}";
+        await _cacheService.SetAsync(cacheKey, performanceDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return performanceDto;
     }
 
     public async Task<StudentPerformanceDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var cacheKey = $"student_performance_{id}";
+        
+        // Try to get from cache first
+        var cachedPerformance = await _cacheService.GetAsync<StudentPerformanceDto>(cacheKey, cancellationToken);
+        if (cachedPerformance != null)
+        {
+            return cachedPerformance;
+        }
+
+        // If not in cache, get from database
         var performance = await _performanceRepository.GetByIdAsync(id, cancellationToken);
-        return performance != null ? MapToDto(performance) : null;
+        if (performance == null)
+        {
+            return null;
+        }
+
+        var performanceDto = MapToDto(performance);
+        
+        // Cache the result
+        await _cacheService.SetAsync(cacheKey, performanceDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return performanceDto;
     }
 
     public async Task<IEnumerable<StudentPerformanceDto>> GetByStudentIdAsync(Guid studentId, CancellationToken cancellationToken = default)
     {
+        var cacheKey = $"student_performances_{studentId}";
+        
+        // Try to get from cache first
+        var cachedPerformances = await _cacheService.GetAsync<IEnumerable<StudentPerformanceDto>>(cacheKey, cancellationToken);
+        if (cachedPerformances != null)
+        {
+            return cachedPerformances;
+        }
+
+        // If not in cache, get from database
         var performances = await _performanceRepository.GetByStudentIdAsync(studentId, cancellationToken);
-        return performances.Select(MapToDto);
+        var performanceDtos = performances.Select(MapToDto).ToList();
+        
+        // Cache the result
+        await _cacheService.SetAsync(cacheKey, performanceDtos, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return performanceDtos;
     }
 
     public async Task<IEnumerable<StudentPerformanceDto>> GetBySubjectAsync(string subject, CancellationToken cancellationToken = default)
@@ -161,17 +209,31 @@ public class StudentPerformanceService : IStudentPerformanceService
         if (request.Comments != null) existingPerformance.Comments = request.Comments;
 
         var updatedPerformance = await _performanceRepository.UpdateAsync(existingPerformance, cancellationToken);
-        return MapToDto(updatedPerformance);
+        var performanceDto = MapToDto(updatedPerformance);
+        
+        // Invalidate related caches
+        await InvalidateStudentPerformanceCacheAsync(updatedPerformance, cancellationToken);
+        
+        // Cache the updated performance
+        var cacheKey = $"student_performance_{updatedPerformance.Id}";
+        await _cacheService.SetAsync(cacheKey, performanceDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return performanceDto;
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        if (!await _performanceRepository.ExistsAsync(id, cancellationToken))
+        // Get performance info before deletion for cache invalidation
+        var performance = await _performanceRepository.GetByIdAsync(id, cancellationToken);
+        if (performance == null)
         {
             throw new InvalidOperationException($"Performance record with ID '{id}' not found.");
         }
 
         await _performanceRepository.DeleteAsync(id, cancellationToken);
+        
+        // Invalidate cache after deletion
+        await InvalidateStudentPerformanceCacheAsync(performance, cancellationToken);
     }
 
     public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
@@ -273,6 +335,21 @@ public class StudentPerformanceService : IStudentPerformanceService
             filter.Page,
             filter.Limit
         );
+    }
+
+    private async Task InvalidateStudentPerformanceCacheAsync(StudentPerformance performance, CancellationToken cancellationToken = default)
+    {
+        // Invalidate all possible cache keys for this performance record
+        var cacheKeys = new[]
+        {
+            $"student_performance_{performance.Id}",
+            $"student_performances_{performance.StudentId}"
+        };
+
+        foreach (var key in cacheKeys)
+        {
+            await _cacheService.RemoveAsync(key, cancellationToken);
+        }
     }
 
     private StudentPerformanceDto MapToDto(StudentPerformance performance)

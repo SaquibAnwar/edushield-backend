@@ -10,11 +10,14 @@ public class StudentService : IStudentService
 {
     private readonly IStudentRepository _studentRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ICacheService _cacheService;
+    private const int CACHE_EXPIRATION_MINUTES = 15;
 
-    public StudentService(IStudentRepository studentRepository, IUserRepository userRepository)
+    public StudentService(IStudentRepository studentRepository, IUserRepository userRepository, ICacheService cacheService)
     {
         _studentRepository = studentRepository;
         _userRepository = userRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<StudentDto> CreateAsync(CreateStudentRequest request, CancellationToken cancellationToken = default)
@@ -89,7 +92,13 @@ public class StudentService : IStudentService
         }
 
         var createdStudent = await _studentRepository.CreateAsync(student, cancellationToken);
-        return MapToDto(createdStudent);
+        var studentDto = MapToDto(createdStudent);
+        
+        // Cache the newly created student
+        var cacheKey = $"student_{createdStudent.Id}";
+        await _cacheService.SetAsync(cacheKey, studentDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return studentDto;
     }
 
     private async Task<string> GenerateRollNumberAsync(CancellationToken cancellationToken)
@@ -111,20 +120,80 @@ public class StudentService : IStudentService
 
     public async Task<StudentDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var cacheKey = $"student_{id}";
+        
+        // Try to get from cache first
+        var cachedStudent = await _cacheService.GetAsync<StudentDto>(cacheKey, cancellationToken);
+        if (cachedStudent != null)
+        {
+            return cachedStudent;
+        }
+
+        // If not in cache, get from database
         var student = await _studentRepository.GetByIdAsync(id, cancellationToken);
-        return student != null ? MapToDto(student) : null;
+        if (student == null)
+        {
+            return null;
+        }
+
+        var studentDto = MapToDto(student);
+        
+        // Cache the result
+        await _cacheService.SetAsync(cacheKey, studentDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return studentDto;
     }
 
     public async Task<StudentDto?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
+        var cacheKey = $"student_email_{email.ToLowerInvariant()}";
+        
+        // Try to get from cache first
+        var cachedStudent = await _cacheService.GetAsync<StudentDto>(cacheKey, cancellationToken);
+        if (cachedStudent != null)
+        {
+            return cachedStudent;
+        }
+
+        // If not in cache, get from database
         var student = await _studentRepository.GetByEmailAsync(email, cancellationToken);
-        return student != null ? MapToDto(student) : null;
+        if (student == null)
+        {
+            return null;
+        }
+
+        var studentDto = MapToDto(student);
+        
+        // Cache the result
+        await _cacheService.SetAsync(cacheKey, studentDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return studentDto;
     }
 
     public async Task<StudentDto?> GetByRollNumberAsync(string rollNumber, CancellationToken cancellationToken = default)
     {
+        var cacheKey = $"student_roll_{rollNumber.ToLowerInvariant()}";
+        
+        // Try to get from cache first
+        var cachedStudent = await _cacheService.GetAsync<StudentDto>(cacheKey, cancellationToken);
+        if (cachedStudent != null)
+        {
+            return cachedStudent;
+        }
+
+        // If not in cache, get from database
         var student = await _studentRepository.GetByRollNumberAsync(rollNumber, cancellationToken);
-        return student != null ? MapToDto(student) : null;
+        if (student == null)
+        {
+            return null;
+        }
+
+        var studentDto = MapToDto(student);
+        
+        // Cache the result
+        await _cacheService.SetAsync(cacheKey, studentDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return studentDto;
     }
 
     public async Task<IEnumerable<StudentDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -437,12 +506,30 @@ public class StudentService : IStudentService
         }
 
         var updatedStudent = await _studentRepository.UpdateAsync(existingStudent, cancellationToken);
-        return MapToDto(updatedStudent);
+        var studentDto = MapToDto(updatedStudent);
+        
+        // Invalidate and update cache
+        await InvalidateStudentCacheAsync(updatedStudent, cancellationToken);
+        
+        // Cache the updated student
+        var cacheKey = $"student_{updatedStudent.Id}";
+        await _cacheService.SetAsync(cacheKey, studentDto, TimeSpan.FromMinutes(CACHE_EXPIRATION_MINUTES), cancellationToken);
+        
+        return studentDto;
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        // Get student info before deletion for cache invalidation
+        var student = await _studentRepository.GetByIdAsync(id, cancellationToken);
+        
         await _studentRepository.DeleteAsync(id, cancellationToken);
+        
+        // Invalidate cache after deletion
+        if (student != null)
+        {
+            await InvalidateStudentCacheAsync(student, cancellationToken);
+        }
     }
 
     public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
@@ -458,6 +545,22 @@ public class StudentService : IStudentService
     public async Task<bool> RollNumberExistsAsync(string rollNumber, CancellationToken cancellationToken = default)
     {
         return await _studentRepository.RollNumberExistsAsync(rollNumber, cancellationToken);
+    }
+
+    private async Task InvalidateStudentCacheAsync(Student student, CancellationToken cancellationToken = default)
+    {
+        // Invalidate all possible cache keys for this student
+        var cacheKeys = new[]
+        {
+            $"student_{student.Id}",
+            $"student_email_{student.Email.ToLowerInvariant()}",
+            $"student_roll_{student.RollNumber.ToLowerInvariant()}"
+        };
+
+        foreach (var key in cacheKeys)
+        {
+            await _cacheService.RemoveAsync(key, cancellationToken);
+        }
     }
 
     private static StudentDto MapToDto(Student student)

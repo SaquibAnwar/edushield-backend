@@ -175,6 +175,9 @@ builder.Services.AddScoped<IStudentFeeRepository, StudentFeeRepository>();
 builder.Services.AddScoped<IFacultyStudentAssignmentRepository, FacultyStudentAssignmentRepository>();
 builder.Services.AddScoped<IParentStudentAssignmentRepository, ParentStudentAssignmentRepository>();
 
+// Add Cache Service
+builder.Services.AddScoped<ICacheService, RedisCacheService>();
+
 // Add Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
@@ -207,7 +210,8 @@ else
         .AddDbContextCheck<EduShieldDbContext>();
 }
 
-// Add Redis Cache (optional)
+//TODO
+// Add Redis Cache - will take care of it later
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
